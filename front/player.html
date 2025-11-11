@@ -14,9 +14,22 @@
     <hr>
 
     <p><strong>HP:</strong> <span id="currHp"></span> / <span id="maxHp"></span></p>
+
+    <hr>
+
     <p><strong>Last Roll:</strong> <span id="lastRoll">0</span></p>
 
-    <button id="incrementBtn">Test Increment</button>
+    <label>Dice Type:</label>
+    <select id="diceType">
+        <option value="5">d5</option>
+        <option value="10">d10</option>
+        <option value="20" selected>d20</option>
+        <option value="100">d100</option>
+    </select>
+    <button onclick="rollDice()">Roll Dice</button>
+
+    <hr>
+
     <button onclick="logout()">Logout</button>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -53,6 +66,26 @@
             window.location.href = '/';
         }
 
+        async function rollDice() {
+            const diceType = parseInt(document.getElementById('diceType').value);
+            const roll = Math.floor(Math.random() * diceType) + 1;
+
+            // Update display immediately
+            document.getElementById('lastRoll').textContent = roll;
+
+            // Save to database
+            const response = await fetch(`/api/player/${playerId}/roll`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ roll: roll })
+            });
+
+            const result = await response.json();
+            if (!result.success) {
+                alert('Error saving dice roll');
+            }
+        }
+
         // Load data on page load
         loadPlayerData();
 
@@ -61,11 +94,6 @@
 
         socket.on('connect', () => {
             console.log('Connected to server');
-        });
-
-        document.getElementById('incrementBtn').addEventListener('click', () => {
-            socket.emit('increment');
-            console.log('Sent increment event');
         });
     </script>
 </body>

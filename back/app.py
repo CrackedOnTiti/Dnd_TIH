@@ -80,6 +80,35 @@ def api_get_player(player_id):
             'error': str(e)
         }), 400
 
+@app.route('/api/player/<int:player_id>/roll', methods=['POST'])
+def api_player_roll(player_id):
+    from models import Player
+    try:
+        data = request.get_json()
+        roll = data.get('roll')
+
+        player = db.session.get(Player, player_id)
+        if not player:
+            return jsonify({
+                'success': False,
+                'error': 'Player not found'
+            }), 404
+
+        player.last_dice_roll = roll
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'roll': roll
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving dice roll: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
 @socketio.on('increment')
 def handle_increment():
     print('Player clicked increment!')
