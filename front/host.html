@@ -1,26 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Host</title>
+    <title>Host Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .players-container {
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .player-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .player-card h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .stat-row {
+            margin: 5px 0;
+        }
+
+        .last-roll {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
 </head>
 <body>
     <h1>Host Dashboard</h1>
-    <h2>Counter: <span id="counter">0</span></h2>
+    <button onclick="loadPlayers()">Refresh Players</button>
+    <button onclick="window.location.href='/'">Logout</button>
+
+    <hr>
+
+    <div class="players-container" id="playersContainer">
+        <p>Loading players...</p>
+    </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         const socket = io();
-        let counter = 0;
 
         socket.on('connect', () => {
             console.log('Connected to server');
         });
 
-        socket.on('increment', () => {
-            counter++;
-            document.getElementById('counter').textContent = counter;
-            console.log('Counter incremented to:', counter);
+        // Load all players
+        async function loadPlayers() {
+            const response = await fetch('/api/players');
+            const result = await response.json();
+
+            if (result.success) {
+                displayPlayers(result.players);
+            } else {
+                document.getElementById('playersContainer').innerHTML = '<p>Error loading players</p>';
+            }
+        }
+
+        function displayPlayers(players) {
+            const container = document.getElementById('playersContainer');
+
+            if (players.length === 0) {
+                container.innerHTML = '<p>No players yet...</p>';
+                return;
+            }
+
+            container.innerHTML = players.map(player => `
+                <div class="player-card" id="player-${player.id}">
+                    <h3>${player.player_name}</h3>
+                    <div class="stat-row"><strong>Power:</strong> ${player.power}</div>
+                    <div class="stat-row"><strong>Sex:</strong> ${player.sex}</div>
+                    <hr>
+                    <div class="stat-row"><strong>HP:</strong> <span id="hp-${player.id}">${player.curr_hp} / ${player.max_hp}</span></div>
+                    <div class="stat-row"><strong>Last Roll:</strong> <span class="last-roll" id="roll-${player.id}">${player.last_dice_roll}</span></div>
+                </div>
+            `).join('');
+        }
+
+        // Listen for dice rolls
+        socket.on('player_rolled', (data) => {
+            console.log('Player rolled:', data);
+            const rollElement = document.getElementById(`roll-${data.player_id}`);
+            if (rollElement) {
+                rollElement.textContent = data.roll;
+                // Flash animation
+                rollElement.style.color = '#27ae60';
+                setTimeout(() => {
+                    rollElement.style.color = '#e74c3c';
+                }, 500);
+            }
         });
+
+        // Load players on page load
+        loadPlayers();
     </script>
 </body>
 </html>

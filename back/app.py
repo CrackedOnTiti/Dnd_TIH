@@ -97,6 +97,13 @@ def api_player_roll(player_id):
         player.last_dice_roll = roll
         db.session.commit()
 
+        # Broadcast to all connected clients (especially host)
+        socketio.emit('player_rolled', {
+            'player_id': player.id,
+            'player_name': player.player_name,
+            'roll': roll
+        })
+
         return jsonify({
             'success': True,
             'roll': roll
@@ -104,6 +111,24 @@ def api_player_roll(player_id):
     except Exception as e:
         db.session.rollback()
         print(f"Error saving dice roll: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+@app.route('/api/players', methods=['GET'])
+def api_get_all_players():
+    from models import Player
+    try:
+        players = db.session.query(Player).all()
+        return jsonify({
+            'success': True,
+            'players': [player.to_dict() for player in players]
+        })
+    except Exception as e:
+        print(f"Error getting players: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
