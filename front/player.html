@@ -4,11 +4,29 @@
     <title>Player</title>
 </head>
 <body>
-    <h1>Player</h1>
-    <button id="incrementBtn">Increment Counter</button>
+    <h1>Player: <span id="playerName"></span></h1>
+
+    <p>HP: <span id="currHp"></span> / <span id="maxHp"></span></p>
+    <p>Last Roll: <span id="lastRoll">0</span></p>
+
+    <button id="incrementBtn">Test Increment</button>
+    <button onclick="window.location.href='/'">Logout</button>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
+        // Check if player data exists
+        const playerData = JSON.parse(localStorage.getItem('playerData'));
+        if (!playerData) {
+            window.location.href = '/';
+        }
+
+        // Display player info
+        document.getElementById('playerName').textContent = playerData.player_name;
+        document.getElementById('currHp').textContent = playerData.curr_hp;
+        document.getElementById('maxHp').textContent = playerData.max_hp;
+        document.getElementById('lastRoll').textContent = playerData.last_dice_roll;
+
+        // Socket connection
         const socket = io();
 
         socket.on('connect', () => {

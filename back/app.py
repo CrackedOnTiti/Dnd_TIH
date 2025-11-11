@@ -16,7 +16,7 @@ FRONT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'front')
 
 @app.route('/')
 def index():
-    return "Go to /host or /player"
+    return send_from_directory(FRONT_DIR, 'index.html')
 
 @app.route('/host')
 def host():
@@ -25,6 +25,10 @@ def host():
 @app.route('/player')
 def player():
     return send_from_directory(FRONT_DIR, 'player.html')
+
+@app.route('/player/create')
+def player_create():
+    return send_from_directory(FRONT_DIR, 'player_create.html')
 
 @socketio.on('increment')
 def handle_increment():
