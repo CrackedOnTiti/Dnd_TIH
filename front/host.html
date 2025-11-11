@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Host</title>
+</head>
+<body>
+    <h1>Host Dashboard</h1>
+    <h2>Counter: <span id="counter">0</span></h2>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        let counter = 0;
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('increment', () => {
+            counter++;
+            document.getElementById('counter').textContent = counter;
+            console.log('Counter incremented to:', counter);
+        });
+    </script>
+</body>
+</html>
