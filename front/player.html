@@ -6,25 +6,55 @@
 <body>
     <h1>Player: <span id="playerName"></span></h1>
 
-    <p>HP: <span id="currHp"></span> / <span id="maxHp"></span></p>
-    <p>Last Roll: <span id="lastRoll">0</span></p>
+    <p><strong>Power:</strong> <span id="power"></span></p>
+    <p><strong>Power Description:</strong> <span id="powerDescription"></span></p>
+    <p><strong>Sex:</strong> <span id="sex"></span></p>
+    <p><strong>Physical Description:</strong> <span id="physicalDescription"></span></p>
+
+    <hr>
+
+    <p><strong>HP:</strong> <span id="currHp"></span> / <span id="maxHp"></span></p>
+    <p><strong>Last Roll:</strong> <span id="lastRoll">0</span></p>
 
     <button id="incrementBtn">Test Increment</button>
-    <button onclick="window.location.href='/'">Logout</button>
+    <button onclick="logout()">Logout</button>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        // Check if player data exists
-        const playerData = JSON.parse(localStorage.getItem('playerData'));
-        if (!playerData) {
+        // Check if player ID exists
+        const playerId = localStorage.getItem('playerId');
+        if (!playerId) {
             window.location.href = '/';
         }
 
-        // Display player info
-        document.getElementById('playerName').textContent = playerData.player_name;
-        document.getElementById('currHp').textContent = playerData.curr_hp;
-        document.getElementById('maxHp').textContent = playerData.max_hp;
-        document.getElementById('lastRoll').textContent = playerData.last_dice_roll;
+        // Load player data from database
+        async function loadPlayerData() {
+            const response = await fetch(`/api/player/${playerId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                const player = result.player;
+                document.getElementById('playerName').textContent = player.player_name;
+                document.getElementById('power').textContent = player.power;
+                document.getElementById('powerDescription').textContent = player.power_description;
+                document.getElementById('sex').textContent = player.sex;
+                document.getElementById('physicalDescription').textContent = player.physical_description;
+                document.getElementById('currHp').textContent = player.curr_hp;
+                document.getElementById('maxHp').textContent = player.max_hp;
+                document.getElementById('lastRoll').textContent = player.last_dice_roll;
+            } else {
+                alert('Error loading player data');
+                window.location.href = '/';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('playerId');
+            window.location.href = '/';
+        }
+
+        // Load data on page load
+        loadPlayerData();
 
         // Socket connection
         const socket = io();
