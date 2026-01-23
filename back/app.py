@@ -56,6 +56,12 @@ def api_create_player():
         db.session.add(new_player)
         db.session.commit()
 
+        # Notify host of new player
+        socketio.emit('player_created', {
+            'player_id': new_player.id,
+            'player_name': new_player.player_name
+        })
+
         return jsonify({
             'success': True,
             'player_id': new_player.id
@@ -149,6 +155,29 @@ def handle_increment():
     print('Player clicked increment!')
     emit('increment', broadcast=True)
 
+@socketio.on('update_stat')
+def handle_update_stat(data):
+    from models import Player
+    player_id = data.get('player_id')
+    stat_type = data.get('stat_type')
+    value = data.get('value')
+
+    with app.app_context():
+        player = db.session.get(Player, player_id)
+        if player:
+            if stat_type == 'hp':
+                player.curr_hp = value
+            elif stat_type == 'stam':
+                player.curr_stam = value
+            db.session.commit()
+
+            # Broadcast to all clients (including player)
+            emit('stat_updated', {
+                'player_id': player_id,
+                'stat_type': stat_type,
+                'value': value,
+            }, broadcast=True)
+
 if __name__ == '__main__':
     import time
 
@@ -177,8 +206,10 @@ if __name__ == '__main__':
                     power_description TEXT NOT NULL,
                     sex VARCHAR(20) NOT NULL,
                     physical_description TEXT NOT NULL,
-                    curr_hp INTEGER DEFAULT 20,
-                    max_hp INTEGER DEFAULT 20,
+                    curr_hp INTEGER DEFAULT 100,
+                    max_hp INTEGER DEFAULT 100,
+                    curr_stam INTEGER DEFAULT 100,
+                    max_stam INTEGER DEFAULT 100,
                     last_dice_roll INTEGER DEFAULT 0
                 )
             """))

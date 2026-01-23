@@ -9,8 +9,10 @@ class Player(db.Model):
     power_description = db.Column(db.Text, nullable=False)
     sex = db.Column(db.String(20), nullable=False)
     physical_description = db.Column(db.Text, nullable=False)
-    curr_hp = db.Column(db.Integer, default=20)
-    max_hp = db.Column(db.Integer, default=20)
+    curr_hp = db.Column(db.Integer, default=100)
+    max_hp = db.Column(db.Integer, default=100)
+    curr_stam = db.Column(db.Integer, default=100)
+    max_stam = db.Column(db.Integer, default=100)
     last_dice_roll = db.Column(db.Integer, default=0)
 
     def to_dict(self):
@@ -23,5 +25,7 @@ class Player(db.Model):
             'physical_description': self.physical_description,
             'curr_hp': self.curr_hp,
             'max_hp': self.max_hp,
+            'curr_stam': self.curr_stam,
+            'max_stam': self.max_stam,
             'last_dice_roll': self.last_dice_roll
         }
