@@ -1,7 +1,11 @@
-from flask import Flask, send_from_directory, request, jsonify
+import eventlet
+eventlet.monkey_patch()
+
+from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from functools import wraps
 import os
 
 app = Flask(__name__)
@@ -10,29 +14,30 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///dnd.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Host password
+HOST_PASSWORD = os.environ.get('HOST_PASSWORD', '2251')
+
 db = SQLAlchemy(app)
 
 # Enable CORS for all routes and origins (for local network access)
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-FRONT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'front')
+def require_host_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        password = request.headers.get('X-Host-Password')
+        if password != HOST_PASSWORD:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated
 
-@app.route('/')
-def index():
-    return send_from_directory(FRONT_DIR, 'index.html')
-
-@app.route('/host')
-def host():
-    return send_from_directory(FRONT_DIR, 'host.html')
-
-@app.route('/player')
-def player():
-    return send_from_directory(FRONT_DIR, 'player.html')
-
-@app.route('/player/create')
-def player_create():
-    return send_from_directory(FRONT_DIR, 'player_create.html')
+@app.route('/api/auth/host', methods=['POST'])
+def auth_host():
+    data = request.get_json()
+    if data.get('password') == HOST_PASSWORD:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Wrong password'}), 401
 
 @app.route('/api/player/create', methods=['POST'])
 def api_create_player():
@@ -121,6 +126,7 @@ def api_player_roll(player_id):
         }), 400
 
 @app.route('/api/players', methods=['GET'])
+@require_host_auth
 def api_get_all_players():
     from models import Player
     try:
@@ -179,4 +185,4 @@ if __name__ == '__main__':
             db.session.commit()
             print("Table created with raw SQL!")
 
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
