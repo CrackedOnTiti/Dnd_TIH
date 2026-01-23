@@ -3,3 +3,4 @@ Flask-SocketIO
 Flask-SQLAlchemy
 Flask-Cors
 psycopg2-binary
+eventlet
