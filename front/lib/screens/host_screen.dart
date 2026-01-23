@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/player.dart';
@@ -17,6 +18,8 @@ class _HostScreenState extends State<HostScreen> {
   Map<int, int> _flashingRolls = {};
   late io.Socket _socket;
   final _passwordController = TextEditingController();
+  int _hostLastRoll = 0;
+  int _selectedDice = 20;
 
   @override
   void initState() {
@@ -80,6 +83,17 @@ class _HostScreenState extends State<HostScreen> {
     } catch (e) {
       setState(() => _loading = false);
     }
+  }
+
+  void _rollDice() {
+    final roll = Random().nextInt(_selectedDice) + 1;
+    setState(() {
+      _hostLastRoll = roll;
+    });
+    _socket.emit('host_rolled', {
+      'roll': roll,
+      'dice': _selectedDice,
+    });
   }
 
   @override
@@ -244,6 +258,7 @@ class _HostScreenState extends State<HostScreen> {
                                           curr: player.currHp,
                                           max: player.maxHp,
                                           statType: 'hp',
+                                          color: Colors.green,
                                         ),
                                         const SizedBox(height: 12),
                                         _buildStatRow(
@@ -252,6 +267,7 @@ class _HostScreenState extends State<HostScreen> {
                                           curr: player.currStam,
                                           max: player.maxStam,
                                           statType: 'stam',
+                                          color: Colors.blue,
                                         ),
                                       ],
                                     ),
@@ -276,60 +292,110 @@ class _HostScreenState extends State<HostScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Host dice roll section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _rollDice,
+                        child: const Text('Roll'),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        '$_hostLastRoll',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          border: Border.all(color: Colors.red),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _selectedDice,
+                            dropdownColor: Colors.black,
+                            style: const TextStyle(color: Colors.white),
+                            items: const [
+                              DropdownMenuItem(value: 5, child: Text('d5')),
+                              DropdownMenuItem(value: 10, child: Text('d10')),
+                              DropdownMenuItem(value: 20, child: Text('d20')),
+                              DropdownMenuItem(value: 100, child: Text('d100')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _selectedDice = value);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   // Player dice roll cubes
                   SizedBox(
                     height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _players.length,
-                      itemBuilder: (context, index) {
-                        final player = _players[index];
-                        final isFlashing = _flashingRolls.containsKey(player.id);
-                        final displayRoll = _flashingRolls[player.id] ?? player.lastDiceRoll;
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _players.map((player) {
+                            final isFlashing = _flashingRolls.containsKey(player.id);
+                            final displayRoll = _flashingRolls[player.id] ?? player.lastDiceRoll;
 
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 16),
-                          child: Column(
-                            children: [
-                              // Cube with dice roll
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: Colors.black,
-                                  border: Border.all(color: Colors.red, width: 1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: AnimatedDefaultTextStyle(
-                                    duration: const Duration(milliseconds: 200),
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: isFlashing ? Colors.green : Colors.white,
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Column(
+                                children: [
+                                  // Cube with dice roll
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black,
+                                      border: Border.all(color: Colors.red, width: 1),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Text('$displayRoll'),
+                                    child: Center(
+                                      child: AnimatedDefaultTextStyle(
+                                        duration: const Duration(milliseconds: 200),
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: isFlashing ? Colors.green : Colors.white,
+                                        ),
+                                        child: Text('$displayRoll'),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              // Player name
-                              SizedBox(
-                                width: 60,
-                                child: Text(
-                                  player.playerName,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white70,
+                                  const SizedBox(height: 8),
+                                  // Player name
+                                  SizedBox(
+                                    width: 60,
+                                    child: Text(
+                                      player.playerName,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white70,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ],

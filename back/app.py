@@ -155,6 +155,11 @@ def handle_increment():
     print('Player clicked increment!')
     emit('increment', broadcast=True)
 
+@socketio.on('host_rolled')
+def handle_host_rolled(data):
+    # Broadcast to all clients (players will receive this)
+    emit('host_rolled', data, broadcast=True)
+
 @socketio.on('update_stat')
 def handle_update_stat(data):
     from models import Player
