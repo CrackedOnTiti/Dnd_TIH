@@ -53,6 +53,10 @@ class _HostScreenState extends State<HostScreen> {
     _socket.on('stat_updated', (data) {
       if (mounted) _loadPlayers();
     });
+
+    _socket.on('player_updated', (data) {
+      if (mounted) _loadPlayers();
+    });
   }
 
   Future<void> _authenticate() async {
@@ -173,36 +177,59 @@ class _HostScreenState extends State<HostScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Left column - Descriptive info
+                                  // Left side (50% of cell, split into two 25% columns)
                                   Expanded(
-                                    child: Column(
+                                    child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          player.playerName,
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
+                                        // Left-Left (25%) - Descriptive info
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                player.playerName,
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                player.power,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              AnimatedDefaultTextStyle(
+                                                duration: const Duration(milliseconds: 200),
+                                                style: TextStyle(
+                                                  fontSize: 32,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isFlashing ? Colors.green : Colors.red,
+                                                ),
+                                                child: Text('$displayRoll'),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          player.power,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.white70,
+                                        // Left-Right (25%) - Menu icon
+                                        Expanded(
+                                          child: Center(
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                Icons.menu,
+                                                color: Colors.white,
+                                                size: 32,
+                                              ),
+                                              onPressed: () {
+                                                _showPlayerEditDialog(player);
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        AnimatedDefaultTextStyle(
-                                          duration: const Duration(milliseconds: 200),
-                                          style: TextStyle(
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                            color: isFlashing ? Colors.green : Colors.red,
-                                          ),
-                                          child: Text('$displayRoll'),
                                         ),
                                       ],
                                     ),
@@ -252,6 +279,23 @@ class _HostScreenState extends State<HostScreen> {
     );
   }
 
+  void _showPlayerEditDialog(Player player) {
+    showDialog(
+      context: context,
+      builder: (context) => PlayerEditDialog(
+        player: player,
+        onUpdate: (field, value) {
+          _socket.emit('update_player_field', {
+            'player_id': player.id,
+            'field': field,
+            'value': value,
+          });
+          _loadPlayers();
+        },
+      ),
+    );
+  }
+
   Widget _buildStatRow({
     required Player player,
     required String label,
@@ -274,6 +318,170 @@ class _HostScreenState extends State<HostScreen> {
       'stat_type': statType,
       'value': value,
     });
+  }
+}
+
+class PlayerEditDialog extends StatefulWidget {
+  final Player player;
+  final Function(String field, dynamic value) onUpdate;
+
+  const PlayerEditDialog({
+    super.key,
+    required this.player,
+    required this.onUpdate,
+  });
+
+  @override
+  State<PlayerEditDialog> createState() => _PlayerEditDialogState();
+}
+
+class _PlayerEditDialogState extends State<PlayerEditDialog> {
+  late TextEditingController _nameController;
+  late TextEditingController _powerController;
+  late TextEditingController _powerDescController;
+  late TextEditingController _sexController;
+  late TextEditingController _physDescController;
+  late TextEditingController _currHpController;
+  late TextEditingController _maxHpController;
+  late TextEditingController _currStamController;
+  late TextEditingController _maxStamController;
+  late TextEditingController _lastRollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.player.playerName);
+    _powerController = TextEditingController(text: widget.player.power);
+    _powerDescController = TextEditingController(text: widget.player.powerDescription);
+    _sexController = TextEditingController(text: widget.player.sex);
+    _physDescController = TextEditingController(text: widget.player.physicalDescription);
+    _currHpController = TextEditingController(text: '${widget.player.currHp}');
+    _maxHpController = TextEditingController(text: '${widget.player.maxHp}');
+    _currStamController = TextEditingController(text: '${widget.player.currStam}');
+    _maxStamController = TextEditingController(text: '${widget.player.maxStam}');
+    _lastRollController = TextEditingController(text: '${widget.player.lastDiceRoll}');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _powerController.dispose();
+    _powerDescController.dispose();
+    _sexController.dispose();
+    _physDescController.dispose();
+    _currHpController.dispose();
+    _maxHpController.dispose();
+    _currStamController.dispose();
+    _maxStamController.dispose();
+    _lastRollController.dispose();
+    super.dispose();
+  }
+
+  void _submitField(String field, String value, {bool isInt = false}) {
+    final val = isInt ? int.tryParse(value) ?? 0 : value;
+    widget.onUpdate(field, val);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Colors.red, width: 1),
+      ),
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'EDIT PLAYER',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildEditField('Name', _nameController, 'player_name'),
+              _buildEditField('Power', _powerController, 'power'),
+              _buildEditField('Power Description', _powerDescController, 'power_description'),
+              _buildEditField('Sex', _sexController, 'sex'),
+              _buildEditField('Physical Description', _physDescController, 'physical_description'),
+              const Divider(color: Colors.red),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _buildEditField('Curr HP', _currHpController, 'curr_hp', isInt: true)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildEditField('Max HP', _maxHpController, 'max_hp', isInt: true)),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(child: _buildEditField('Curr Stam', _currStamController, 'curr_stam', isInt: true)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildEditField('Max Stam', _maxStamController, 'max_stam', isInt: true)),
+                ],
+              ),
+              _buildEditField('Last Dice Roll', _lastRollController, 'last_dice_roll', isInt: true),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditField(String label, TextEditingController controller, String field, {bool isInt = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.red,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            keyboardType: isInt ? TextInputType.number : TextInputType.text,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              filled: true,
+              fillColor: const Color(0xFF1A1A1A),
+              border: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.red),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.red),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            onSubmitted: (value) => _submitField(field, value, isInt: isInt),
+          ),
+        ],
+      ),
+    );
   }
 }
 

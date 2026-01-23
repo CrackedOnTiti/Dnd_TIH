@@ -178,6 +178,35 @@ def handle_update_stat(data):
                 'value': value,
             }, broadcast=True)
 
+@socketio.on('update_player_field')
+def handle_update_player_field(data):
+    from models import Player
+    player_id = data.get('player_id')
+    field = data.get('field')
+    value = data.get('value')
+
+    # Allowed fields to update
+    allowed_fields = [
+        'player_name', 'power', 'power_description', 'sex', 'physical_description',
+        'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll'
+    ]
+
+    if field not in allowed_fields:
+        return
+
+    with app.app_context():
+        player = db.session.get(Player, player_id)
+        if player:
+            setattr(player, field, value)
+            db.session.commit()
+
+            # Broadcast to all clients
+            emit('player_updated', {
+                'player_id': player_id,
+                'field': field,
+                'value': value,
+            }, broadcast=True)
+
 if __name__ == '__main__':
     import time
 
