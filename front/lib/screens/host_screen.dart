@@ -1,0 +1,400 @@
+import 'package:flutter/material.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+import '../models/player.dart';
+import '../services/api_service.dart';
+
+class HostScreen extends StatefulWidget {
+  const HostScreen({super.key});
+
+  @override
+  State<HostScreen> createState() => _HostScreenState();
+}
+
+class _HostScreenState extends State<HostScreen> {
+  List<Player> _players = [];
+  bool _loading = true;
+  bool _authenticated = false;
+  Map<int, int> _flashingRolls = {};
+  late io.Socket _socket;
+  final _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initSocket();
+  }
+
+  void _initSocket() {
+    _socket = io.io(ApiService.baseUrl, <String, dynamic>{
+      'transports': ['polling', 'websocket'],
+      'autoConnect': true,
+    });
+
+    _socket.on('player_rolled', (data) {
+      final playerId = data['player_id'];
+      final roll = data['roll'];
+      setState(() {
+        _flashingRolls[playerId] = roll;
+      });
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _flashingRolls.remove(playerId);
+          });
+          _loadPlayers();
+        }
+      });
+    });
+
+    _socket.on('player_created', (data) {
+      if (mounted) _loadPlayers();
+    });
+
+    _socket.on('stat_updated', (data) {
+      if (mounted) _loadPlayers();
+    });
+  }
+
+  Future<void> _authenticate() async {
+    final password = _passwordController.text;
+    if (password.length < 4) return; // Don't spam API for short input
+
+    final success = await ApiService.authHost(password);
+    if (success) {
+      setState(() => _authenticated = true);
+      _loadPlayers();
+    }
+  }
+
+  Future<void> _loadPlayers() async {
+    try {
+      final players = await ApiService.getPlayers();
+      setState(() {
+        _players = players;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _socket.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show password overlay if not authenticated
+    if (!_authenticated) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  autofocus: true,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: '****',
+                    hintStyle: TextStyle(color: Colors.white24),
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (_) => _authenticate(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Show dashboard if authenticated
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('HOST DASHBOARD'),
+        automaticallyImplyLeading: false,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.red, height: 1),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadPlayers,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/');
+            },
+          ),
+        ],
+      ),
+      body: Row(
+        children: [
+          // Left side - Player list (50%)
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Colors.red))
+                : _players.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No players yet...',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _players.length,
+                        itemBuilder: (context, index) {
+                          final player = _players[index];
+                          final isFlashing = _flashingRolls.containsKey(player.id);
+                          final displayRoll = _flashingRolls[player.id] ?? player.lastDiceRoll;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              border: Border.all(color: Colors.red, width: 1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Left column - Descriptive info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          player.playerName,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          player.power,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        AnimatedDefaultTextStyle(
+                                          duration: const Duration(milliseconds: 200),
+                                          style: TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: isFlashing ? Colors.green : Colors.red,
+                                          ),
+                                          child: Text('$displayRoll'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Right column - HP & Stamina controls
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        _buildStatRow(
+                                          player: player,
+                                          label: 'HP',
+                                          curr: player.currHp,
+                                          max: player.maxHp,
+                                          statType: 'hp',
+                                        ),
+                                        const SizedBox(height: 12),
+                                        _buildStatRow(
+                                          player: player,
+                                          label: 'STAM',
+                                          curr: player.currStam,
+                                          max: player.maxStam,
+                                          statType: 'stam',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+          // Right side - Placeholder (50%)
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                border: Border.all(color: Colors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow({
+    required Player player,
+    required String label,
+    required int curr,
+    required int max,
+    required String statType,
+  }) {
+    return StatRowWidget(
+      curr: curr,
+      max: max,
+      statType: statType,
+      playerId: player.id,
+      onUpdate: _updatePlayerStat,
+    );
+  }
+
+  void _updatePlayerStat(int playerId, String statType, int value) {
+    _socket.emit('update_stat', {
+      'player_id': playerId,
+      'stat_type': statType,
+      'value': value,
+    });
+  }
+}
+
+class StatRowWidget extends StatefulWidget {
+  final int curr;
+  final int max;
+  final String statType;
+  final int playerId;
+  final Function(int, String, int) onUpdate;
+
+  const StatRowWidget({
+    super.key,
+    required this.curr,
+    required this.max,
+    required this.statType,
+    required this.playerId,
+    required this.onUpdate,
+  });
+
+  @override
+  State<StatRowWidget> createState() => _StatRowWidgetState();
+}
+
+class _StatRowWidgetState extends State<StatRowWidget> {
+  late TextEditingController _controller;
+  late double _sliderValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.curr}');
+    _sliderValue = widget.curr.toDouble();
+  }
+
+  @override
+  void didUpdateWidget(StatRowWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.curr != widget.curr) {
+      _controller.text = '${widget.curr}';
+      _sliderValue = widget.curr.toDouble();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateValue(int value) {
+    setState(() {
+      _sliderValue = value.toDouble();
+      _controller.text = '$value';
+    });
+    widget.onUpdate(widget.playerId, widget.statType, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Display: curr/max
+        SizedBox(
+          width: 60,
+          child: Text(
+            '${_sliderValue.toInt()}/${widget.max}',
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ),
+        // Input box
+        SizedBox(
+          width: 50,
+          child: TextField(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.black,
+              border: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.red),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.red),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            onSubmitted: (value) {
+              final newValue = int.tryParse(value);
+              if (newValue != null && newValue >= 0 && newValue <= widget.max) {
+                _updateValue(newValue);
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Slider
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: Colors.red,
+              inactiveTrackColor: Colors.red.withOpacity(0.3),
+              thumbColor: Colors.red,
+              overlayColor: Colors.red.withOpacity(0.2),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: _sliderValue,
+              min: 0,
+              max: widget.max.toDouble(),
+              onChanged: (value) {
+                _updateValue(value.toInt());
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
