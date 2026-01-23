@@ -430,6 +430,7 @@ class _HostScreenState extends State<HostScreen> {
     required int curr,
     required int max,
     required String statType,
+    required Color color,
   }) {
     return StatRowWidget(
       curr: curr,
@@ -437,6 +438,7 @@ class _HostScreenState extends State<HostScreen> {
       statType: statType,
       playerId: player.id,
       onUpdate: _updatePlayerStat,
+      color: color,
     );
   }
 
@@ -619,6 +621,7 @@ class StatRowWidget extends StatefulWidget {
   final String statType;
   final int playerId;
   final Function(int, String, int) onUpdate;
+  final Color color;
 
   const StatRowWidget({
     super.key,
@@ -627,6 +630,7 @@ class StatRowWidget extends StatefulWidget {
     required this.statType,
     required this.playerId,
     required this.onUpdate,
+    required this.color,
   });
 
   @override
@@ -693,11 +697,11 @@ class _StatRowWidgetState extends State<StatRowWidget> {
               filled: true,
               fillColor: Colors.black,
               border: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: BorderSide(color: widget.color),
                 borderRadius: BorderRadius.circular(4),
               ),
               enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: BorderSide(color: widget.color),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -714,10 +718,10 @@ class _StatRowWidgetState extends State<StatRowWidget> {
         Expanded(
           child: SliderTheme(
             data: SliderThemeData(
-              activeTrackColor: Colors.red,
-              inactiveTrackColor: Colors.red.withOpacity(0.3),
-              thumbColor: Colors.red,
-              overlayColor: Colors.red.withOpacity(0.2),
+              activeTrackColor: widget.color,
+              inactiveTrackColor: widget.color.withOpacity(0.3),
+              thumbColor: widget.color,
+              overlayColor: widget.color.withOpacity(0.2),
               trackHeight: 4,
             ),
             child: Slider(
