@@ -263,14 +263,76 @@ class _HostScreenState extends State<HostScreen> {
                         },
                       ),
           ),
-          // Right side - Placeholder (50%)
+          // Right side - Main panel (50%)
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.black,
                 border: Border.all(color: Colors.red, width: 1),
                 borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Player dice roll cubes
+                  SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _players.length,
+                      itemBuilder: (context, index) {
+                        final player = _players[index];
+                        final isFlashing = _flashingRolls.containsKey(player.id);
+                        final displayRoll = _flashingRolls[player.id] ?? player.lastDiceRoll;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Column(
+                            children: [
+                              // Cube with dice roll
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  border: Border.all(color: Colors.red, width: 1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 200),
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: isFlashing ? Colors.green : Colors.white,
+                                    ),
+                                    child: Text('$displayRoll'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Player name
+                              SizedBox(
+                                width: 60,
+                                child: Text(
+                                  player.playerName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
