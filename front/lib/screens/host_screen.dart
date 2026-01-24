@@ -20,6 +20,10 @@ class _HostScreenState extends State<HostScreen> {
   final _passwordController = TextEditingController();
   int _hostLastRoll = 0;
   int _selectedDice = 20;
+  Set<int> _selectedPlayerIds = {};
+  final _broadcastMessageController = TextEditingController();
+  String _broadcastMode = 'RP';
+  Set<int> _unreadPlayerIds = {};
 
   @override
   void initState() {
@@ -62,6 +66,19 @@ class _HostScreenState extends State<HostScreen> {
     });
   }
 
+  void _setupMessageListeners() {
+    for (final player in _players) {
+      _socket.off('new_message_${player.id}');
+      _socket.on('new_message_${player.id}', (data) {
+        if (mounted && data['sender'] == 'player') {
+          setState(() {
+            _unreadPlayerIds.add(player.id);
+          });
+        }
+      });
+    }
+  }
+
   Future<void> _authenticate() async {
     final password = _passwordController.text;
     if (password.length < 4) return; // Don't spam API for short input
@@ -80,6 +97,7 @@ class _HostScreenState extends State<HostScreen> {
         _players = players;
         _loading = false;
       });
+      _setupMessageListeners();
     } catch (e) {
       setState(() => _loading = false);
     }
@@ -100,7 +118,25 @@ class _HostScreenState extends State<HostScreen> {
   void dispose() {
     _socket.dispose();
     _passwordController.dispose();
+    _broadcastMessageController.dispose();
     super.dispose();
+  }
+
+  void _sendBroadcastMessage() {
+    final text = _broadcastMessageController.text.trim();
+    if (text.isEmpty || _selectedPlayerIds.isEmpty) return;
+
+    for (final playerId in _selectedPlayerIds) {
+      final message = {
+        'player_id': playerId,
+        'sender': 'host',
+        'content': text,
+        'mode': _broadcastMode,
+      };
+      _socket.emit('host_message', message);
+    }
+
+    _broadcastMessageController.clear();
   }
 
   @override
@@ -292,6 +328,150 @@ class _HostScreenState extends State<HostScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Broadcast message input row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _broadcastMessageController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Broadcast message...',
+                            hintStyle: const TextStyle(color: Colors.white38),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            filled: true,
+                            fillColor: const Color(0xFF1A1A1A),
+                            border: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.red),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.red),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendBroadcastMessage(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          border: Border.all(color: Colors.red),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _broadcastMode,
+                            dropdownColor: Colors.black,
+                            style: const TextStyle(color: Colors.white),
+                            items: const [
+                              DropdownMenuItem(value: 'RP', child: Text('RP')),
+                              DropdownMenuItem(value: '???', child: Text('???')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _broadcastMode = value);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.send, color: Colors.red),
+                        onPressed: _sendBroadcastMessage,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Player checkboxes row
+                  SizedBox(
+                    height: 40,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _players.map((player) {
+                            final isSelected = _selectedPlayerIds.contains(player.id);
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    if (isSelected) {
+                                      _selectedPlayerIds.remove(player.id);
+                                    } else {
+                                      _selectedPlayerIds.add(player.id);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Colors.red : Colors.black,
+                                    border: Border.all(color: Colors.red, width: 1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                      : null,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Player buttons row
+                  SizedBox(
+                    height: 50,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _players.map((player) {
+                          final hasUnread = _unreadPlayerIds.contains(player.id);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                border: Border.all(
+                                  color: hasUnread ? Colors.green : Colors.red,
+                                  width: hasUnread ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _unreadPlayerIds.remove(player.id);
+                                  });
+                                  _showPlayerChatDialog(player);
+                                },
+                                child: Text(
+                                  player.playerName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // Host dice roll section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -403,6 +583,16 @@ class _HostScreenState extends State<HostScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showPlayerChatDialog(Player player) {
+    showDialog(
+      context: context,
+      builder: (context) => PlayerChatDialog(
+        player: player,
+        socket: _socket,
       ),
     );
   }
@@ -735,6 +925,235 @@ class _StatRowWidgetState extends State<StatRowWidget> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class PlayerChatDialog extends StatefulWidget {
+  final Player player;
+  final io.Socket socket;
+
+  const PlayerChatDialog({
+    super.key,
+    required this.player,
+    required this.socket,
+  });
+
+  @override
+  State<PlayerChatDialog> createState() => _PlayerChatDialogState();
+}
+
+class _PlayerChatDialogState extends State<PlayerChatDialog> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> _messages = [];
+  String _selectedMode = 'RP';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+    _setupSocketListeners();
+  }
+
+  void _setupSocketListeners() {
+    widget.socket.on('new_message_${widget.player.id}', (data) {
+      if (mounted && data['sender'] != 'host') {
+        setState(() {
+          _messages.add(data);
+        });
+        _scrollToBottom();
+      }
+    });
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final messages = await ApiService.getMessages(widget.player.id);
+      if (mounted) {
+        setState(() {
+          _messages = messages;
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      // Failed to load messages
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _sendMessage() {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    final message = {
+      'player_id': widget.player.id,
+      'sender': 'host',
+      'content': text,
+      'mode': _selectedMode,
+    };
+
+    widget.socket.emit('host_message', message);
+
+    setState(() {
+      _messages.add(message);
+    });
+
+    _messageController.clear();
+    _scrollToBottom();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    widget.socket.off('new_message_${widget.player.id}');
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Colors.red, width: 1),
+      ),
+      child: Container(
+        width: 500,
+        height: 600,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.player.playerName.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.red),
+            // Messages area
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final msg = _messages[index];
+                  final isHost = msg['sender'] == 'host';
+
+                  return Align(
+                    alignment: isHost ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      constraints: const BoxConstraints(maxWidth: 350),
+                      decoration: BoxDecoration(
+                        color: isHost ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isHost ? Colors.red : Colors.white24,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        msg['content'] ?? '',
+                        style: TextStyle(
+                          color: msg['mode'] == '???' ? Colors.red : Colors.white,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Input area
+            Row(
+              children: [
+                // Text input
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      filled: true,
+                      fillColor: const Color(0xFF1A1A1A),
+                      border: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.red),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.red),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Mode dropdown
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    border: Border.all(color: Colors.red),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedMode,
+                      dropdownColor: Colors.black,
+                      style: const TextStyle(color: Colors.white),
+                      items: const [
+                        DropdownMenuItem(value: 'RP', child: Text('RP')),
+                        DropdownMenuItem(value: '???', child: Text('???')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedMode = value);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Send button
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.red),
+                  onPressed: _sendMessage,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

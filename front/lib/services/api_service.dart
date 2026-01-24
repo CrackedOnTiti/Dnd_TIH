@@ -99,4 +99,17 @@ class ApiService {
       throw Exception('Failed to save roll');
     }
   }
+
+  static Future<List<Map<String, dynamic>>> getMessages(int playerId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/player/$playerId/messages'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success']) {
+        return List<Map<String, dynamic>>.from(data['messages']);
+      }
+    }
+    throw Exception('Failed to load messages');
+  }
 }

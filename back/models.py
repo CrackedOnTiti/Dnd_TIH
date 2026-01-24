@@ -29,3 +29,24 @@ class Player(db.Model):
             'max_stam': self.max_stam,
             'last_dice_roll': self.last_dice_roll
         }
+
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    sender = db.Column(db.String(20), nullable=False)  # 'host' or 'player'
+    content = db.Column(db.Text, nullable=False)
+    mode = db.Column(db.String(20), default='RP')  # 'RP' or '???'
+
+    player = db.relationship('Player', backref=db.backref('messages', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'player_id': self.player_id,
+            'sender': self.sender,
+            'content': self.content,
+            'mode': self.mode
+        }
