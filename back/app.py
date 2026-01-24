@@ -226,13 +226,14 @@ def handle_player_message(data):
     from models import Message
     player_id = data.get('player_id')
     content = data.get('content')
+    mode = data.get('mode', 'RP')
 
     with app.app_context():
         message = Message(
             player_id=player_id,
             sender='player',
             content=content,
-            mode='RP'  # Player messages are always RP mode
+            mode=mode
         )
         db.session.add(message)
         db.session.commit()
