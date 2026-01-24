@@ -3,10 +3,11 @@ import 'package:http/http.dart' as http;
 import '../models/player.dart';
 
 class ApiService {
-  static String baseUrl = const String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://localhost:5000',
-  );
+  static String baseUrl = 'http://localhost:5000';
+
+  static void setBaseUrl(String url) {
+    baseUrl = url;
+  }
 
   static String? _hostPassword;
 

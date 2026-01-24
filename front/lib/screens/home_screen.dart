@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -9,12 +10,40 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _serverController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServerUrl();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('serverUrl') ?? 'http://localhost:5000';
+    _serverController.text = savedUrl;
+    ApiService.setBaseUrl(savedUrl);
+  }
+
+  Future<void> _saveServerUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('serverUrl', _serverController.text);
+    ApiService.setBaseUrl(_serverController.text);
+  }
+
   Future<void> _continuer() async {
+    await _saveServerUrl();
     final prefs = await SharedPreferences.getInstance();
     final playerId = prefs.getInt('playerId');
     if (playerId != null && mounted) {
       Navigator.pushReplacementNamed(context, '/player');
     }
+  }
+
+  @override
+  void dispose() {
+    _serverController.dispose();
+    super.dispose();
   }
 
   @override
@@ -44,15 +73,39 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 64),
+                    const SizedBox(height: 32),
+                    TextField(
+                      controller: _serverController,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        labelText: 'Server URL',
+                        labelStyle: const TextStyle(color: Colors.red),
+                        hintText: 'http://192.168.1.14:5000',
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFF1A1A1A),
+                        border: OutlineInputBorder(
+                          borderSide: const BorderSide(color: Colors.red),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: const BorderSide(color: Colors.red),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      onChanged: (_) => _saveServerUrl(),
+                    ),
+                    const SizedBox(height: 32),
                     ElevatedButton(
                       onPressed: _continuer,
                       child: const Text('Continuer'),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/player/create');
+                      onPressed: () async {
+                        await _saveServerUrl();
+                        if (mounted) Navigator.pushNamed(context, '/player/create');
                       },
                       child: const Text('Nouveau Joueur'),
                     ),
@@ -66,8 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
             left: 0,
             right: 0,
             child: GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(context, '/host');
+              onTap: () async {
+                await _saveServerUrl();
+                if (mounted) Navigator.pushNamed(context, '/host');
               },
               child: const Text(
                 'Cracked',
