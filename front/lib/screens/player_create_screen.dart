@@ -18,7 +18,7 @@ class _PlayerCreateScreenState extends State<PlayerCreateScreen> {
   String? _education;
   bool _isCreating = false;
 
-  final List<String> _sexOptions = ['Male', 'Female', 'Other'];
+  final List<String> _sexOptions = ['Male', 'Female'];
   final List<String> _educationOptions = ['Power Oriented', 'Hand to Hand', 'Weapon'];
 
   bool get _isFormValid =>
