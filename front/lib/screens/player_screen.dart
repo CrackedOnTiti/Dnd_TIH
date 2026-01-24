@@ -100,6 +100,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final field = data['field'];
         final value = data['value'];
         setState(() {
+          if (field == 'last_dice_roll') {
+            _lastRoll = value;
+          }
           _player = Player(
             id: _player!.id,
             playerName: field == 'player_name' ? value : _player!.playerName,
