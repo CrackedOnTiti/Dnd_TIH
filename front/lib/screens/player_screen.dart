@@ -438,6 +438,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
                 ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.assignment, color: Colors.white70, size: 48),
+                  iconSize: 48,
+                  tooltip: 'Notes',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    // TODO: open notepad
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 24),
