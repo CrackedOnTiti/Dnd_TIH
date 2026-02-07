@@ -113,4 +113,28 @@ class ApiService {
     }
     throw Exception('Failed to load messages');
   }
+
+  static Future<String> getNotes(int playerId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/player/$playerId/notes'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success']) {
+        return data['content'] ?? '';
+      }
+    }
+    throw Exception('Failed to load notes');
+  }
+
+  static Future<void> saveNotes(int playerId, String content) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/player/$playerId/notes'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'content': content}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save notes');
+    }
+  }
 }

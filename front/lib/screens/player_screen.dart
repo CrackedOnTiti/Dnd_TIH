@@ -446,7 +446,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: () {
-                    // TODO: open notepad
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => PlayerNoteDialog(playerId: _player!.id),
+                    );
                   },
                 ),
               ],
@@ -666,6 +669,118 @@ class _PlayerScreenState extends State<PlayerScreen> {
           style: const TextStyle(color: Colors.white),
         ),
       ],
+    );
+  }
+}
+
+class PlayerNoteDialog extends StatefulWidget {
+  final int playerId;
+  const PlayerNoteDialog({super.key, required this.playerId});
+
+  @override
+  State<PlayerNoteDialog> createState() => _PlayerNoteDialogState();
+}
+
+class _PlayerNoteDialogState extends State<PlayerNoteDialog> {
+  final TextEditingController _noteController = TextEditingController();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  Future<void> _loadNotes() async {
+    try {
+      final content = await ApiService.getNotes(widget.playerId);
+      _noteController.text = content;
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _saveNotes() async {
+    try {
+      await ApiService.saveNotes(widget.playerId, _noteController.text);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _saveNotes();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Colors.red),
+      ),
+      child: SizedBox(
+        width: 500,
+        height: 500,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'NOTES',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.red))
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: TextField(
+                        controller: _noteController,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Write your notes here...',
+                          hintStyle: const TextStyle(color: Colors.white24),
+                          filled: true,
+                          fillColor: Colors.black,
+                          border: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red, width: 2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
