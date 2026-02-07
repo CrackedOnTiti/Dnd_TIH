@@ -148,6 +148,38 @@ def api_get_player_messages(player_id):
         }), 400
 
 
+@app.route('/api/player/<int:player_id>/notes', methods=['GET'])
+def api_get_notes(player_id):
+    from models import Note
+    try:
+        note = db.session.query(Note).filter_by(player_id=player_id).first()
+        return jsonify({
+            'success': True,
+            'content': note.content if note else ''
+        })
+    except Exception as e:
+        print(f"Error getting notes: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/player/<int:player_id>/notes', methods=['POST'])
+def api_save_notes(player_id):
+    from models import Note
+    try:
+        data = request.get_json()
+        content = data.get('content', '')
+        note = db.session.query(Note).filter_by(player_id=player_id).first()
+        if note:
+            note.content = content
+        else:
+            note = Note(player_id=player_id, content=content)
+            db.session.add(note)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving notes: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @app.route('/api/players', methods=['GET'])
 @require_host_auth
 def api_get_all_players():
@@ -280,7 +312,7 @@ if __name__ == '__main__':
     time.sleep(5)
 
     # Create tables
-    from models import Player, Message
+    from models import Player, Message, Note
     with app.app_context():
         try:
             db.create_all()
@@ -290,39 +322,43 @@ if __name__ == '__main__':
             sys.exit(1)
 
         # Verify tables exist
-        result = db.session.execute(db.text("SELECT to_regclass('public.players')"))
-        players_exists = result.scalar()
-        result = db.session.execute(db.text("SELECT to_regclass('public.messages')"))
-        messages_exists = result.scalar()
-        print(f"Players table: {players_exists}, Messages table: {messages_exists}", flush=True)
+        for table_name in ['players', 'messages', 'notes']:
+            result = db.session.execute(db.text(f"SELECT to_regclass('public.{table_name}')"))
+            exists = result.scalar()
+            print(f"{table_name} table: {exists}", flush=True)
 
-        if not players_exists or not messages_exists:
-            print("WARNING: Tables missing! Creating with explicit SQL...", flush=True)
-            db.session.execute(db.text("""
-                CREATE TABLE IF NOT EXISTS players (
-                    id SERIAL PRIMARY KEY,
-                    player_name VARCHAR(100) NOT NULL,
-                    power VARCHAR(100) NOT NULL,
-                    power_description TEXT NOT NULL,
-                    sex VARCHAR(20) NOT NULL,
-                    physical_description TEXT NOT NULL,
-                    curr_hp INTEGER DEFAULT 100,
-                    max_hp INTEGER DEFAULT 100,
-                    curr_stam INTEGER DEFAULT 100,
-                    max_stam INTEGER DEFAULT 100,
-                    last_dice_roll INTEGER DEFAULT 0
-                )
-            """))
-            db.session.execute(db.text("""
-                CREATE TABLE IF NOT EXISTS messages (
-                    id SERIAL PRIMARY KEY,
-                    player_id INTEGER NOT NULL REFERENCES players(id),
-                    sender VARCHAR(20) NOT NULL,
-                    content TEXT NOT NULL,
-                    mode VARCHAR(20) DEFAULT 'RP'
-                )
-            """))
-            db.session.commit()
-            print("Tables created with raw SQL!", flush=True)
+        # Fallback: create with raw SQL if missing
+        db.session.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS players (
+                id SERIAL PRIMARY KEY,
+                player_name VARCHAR(100) NOT NULL,
+                power VARCHAR(100) NOT NULL,
+                power_description TEXT NOT NULL,
+                sex VARCHAR(20) NOT NULL,
+                physical_description TEXT NOT NULL,
+                curr_hp INTEGER DEFAULT 100,
+                max_hp INTEGER DEFAULT 100,
+                curr_stam INTEGER DEFAULT 100,
+                max_stam INTEGER DEFAULT 100,
+                last_dice_roll INTEGER DEFAULT 0
+            )
+        """))
+        db.session.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                player_id INTEGER NOT NULL REFERENCES players(id),
+                sender VARCHAR(20) NOT NULL,
+                content TEXT NOT NULL,
+                mode VARCHAR(20) DEFAULT 'RP'
+            )
+        """))
+        db.session.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS notes (
+                id SERIAL PRIMARY KEY,
+                player_id INTEGER NOT NULL REFERENCES players(id),
+                content TEXT DEFAULT ''
+            )
+        """))
+        db.session.commit()
 
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
