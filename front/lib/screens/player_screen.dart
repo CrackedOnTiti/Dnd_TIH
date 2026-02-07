@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -213,6 +216,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (mounted) Navigator.pushReplacementNamed(context, '/');
   }
 
+  void _downloadPlayerJson() {
+    if (_player == null) return;
+
+    final playerData = {
+      'id': _player!.id,
+      'player_name': _player!.playerName,
+      'power': _player!.power,
+      'power_description': _player!.powerDescription,
+      'sex': _player!.sex,
+      'physical_description': _player!.physicalDescription,
+      'curr_hp': _player!.currHp,
+      'max_hp': _player!.maxHp,
+      'curr_stam': _player!.currStam,
+      'max_stam': _player!.maxStam,
+      'last_dice_roll': _player!.lastDiceRoll,
+    };
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(playerData);
+    final bytes = utf8.encode(jsonString);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', '${_player!.playerName.replaceAll(' ', '_')}.json')
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+  }
+
   @override
   void dispose() {
     _socket.dispose();
@@ -234,6 +266,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         title: Text(_player?.playerName ?? 'Player'),
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: _downloadPlayerJson,
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
