@@ -1,3 +1,6 @@
+import 'dart:convert';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -11,11 +14,60 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _serverController = TextEditingController();
+  bool _isDragging = false;
 
   @override
   void initState() {
     super.initState();
     _loadServerUrl();
+    _setupDragDrop();
+  }
+
+  void _setupDragDrop() {
+    html.document.onDragOver.listen((e) {
+      e.preventDefault();
+      if (!_isDragging && mounted) setState(() => _isDragging = true);
+    });
+    html.document.onDragLeave.listen((e) {
+      if (_isDragging && mounted) setState(() => _isDragging = false);
+    });
+    html.document.onDrop.listen((e) {
+      e.preventDefault();
+      if (mounted) setState(() => _isDragging = false);
+      final files = e.dataTransfer.files;
+      if (files != null && files.isNotEmpty) {
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((_) {
+          try {
+            final json = jsonDecode(reader.result as String);
+            final playerId = json['id'];
+            if (playerId != null && playerId is int) {
+              _loginWithJson(playerId);
+            } else {
+              _showError('Invalid JSON: missing player id');
+            }
+          } catch (_) {
+            _showError('Failed to parse JSON file');
+          }
+        });
+        reader.readAsText(files[0]);
+      }
+    });
+  }
+
+  Future<void> _loginWithJson(int playerId) async {
+    await _saveServerUrl();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('playerId', playerId);
+    if (mounted) Navigator.pushReplacementNamed(context, '/player');
+  }
+
+  void _showError(String msg) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _loadServerUrl() async {
@@ -51,6 +103,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
+          if (_isDragging)
+            Container(
+              color: Colors.red.withValues(alpha: 0.15),
+              child: const Center(
+                child: Text(
+                  'Drop player JSON here',
+                  style: TextStyle(fontSize: 24, color: Colors.red),
+                ),
+              ),
+            ),
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32),
