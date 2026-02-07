@@ -93,6 +93,7 @@ class _HostScreenState extends State<HostScreen> {
   Future<void> _loadPlayers() async {
     try {
       final players = await ApiService.getPlayers();
+      players.sort((a, b) => a.id.compareTo(b.id));
       setState(() {
         _players = players;
         _loading = false;
