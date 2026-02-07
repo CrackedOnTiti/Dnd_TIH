@@ -50,3 +50,20 @@ class Message(db.Model):
             'content': self.content,
             'mode': self.mode
         }
+
+
+class Note(db.Model):
+    __tablename__ = 'notes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
+    content = db.Column(db.Text, default='')
+
+    player = db.relationship('Player', backref=db.backref('notes', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'player_id': self.player_id,
+            'content': self.content
+        }
