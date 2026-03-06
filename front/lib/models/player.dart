@@ -10,6 +10,7 @@ class Player {
   final int currStam;
   final int maxStam;
   final int lastDiceRoll;
+  final int copper;
 
   Player({
     required this.id,
@@ -23,6 +24,7 @@ class Player {
     required this.currStam,
     required this.maxStam,
     required this.lastDiceRoll,
+    required this.copper,
   });
 
   factory Player.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Player {
       currStam: json['curr_stam'],
       maxStam: json['max_stam'],
       lastDiceRoll: json['last_dice_roll'],
+      copper: json['copper'] ?? 0,
     );
   }
 }
