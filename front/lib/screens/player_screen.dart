@@ -78,6 +78,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               currStam: _player!.currStam,
               maxStam: _player!.maxStam,
               lastDiceRoll: _player!.lastDiceRoll,
+              copper: _player!.copper,
             );
           } else if (data['stat_type'] == 'stam') {
             _player = Player(
@@ -92,6 +93,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               currStam: data['value'],
               maxStam: _player!.maxStam,
               lastDiceRoll: _player!.lastDiceRoll,
+              copper: _player!.copper,
             );
           }
         });
@@ -118,6 +120,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             currStam: field == 'curr_stam' ? value : _player!.currStam,
             maxStam: field == 'max_stam' ? value : _player!.maxStam,
             lastDiceRoll: field == 'last_dice_roll' ? value : _player!.lastDiceRoll,
+            copper: field == 'copper' ? value : _player!.copper,
           );
         });
       }
@@ -231,6 +234,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       'curr_stam': _player!.currStam,
       'max_stam': _player!.maxStam,
       'last_dice_roll': _player!.lastDiceRoll,
+      'copper': _player!.copper,
     };
 
     final jsonString = const JsonEncoder.withIndent('  ').convert(playerData);
@@ -253,6 +257,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
+  String _formatCopper(int copper) {
+    final plat = copper ~/ 1000000;
+    final gold = (copper % 1000000) ~/ 10000;
+    final silver = (copper % 10000) ~/ 100;
+    final cop = copper % 100;
+    final parts = <String>[];
+    if (plat > 0) parts.add('${plat}p');
+    if (gold > 0) parts.add('${gold}g');
+    if (silver > 0) parts.add('${silver}s');
+    parts.add('${cop}c');
+    return parts.join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -266,6 +283,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
         title: Text(_player?.playerName ?? 'Player'),
         automaticallyImplyLeading: false,
         actions: [
+          GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => SendMoneyDialog(
+                  playerId: _player!.id,
+                  playerCopper: _player!.copper,
+                  socket: _socket,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                border: Border.all(color: Colors.red, width: 1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _formatCopper(_player?.copper ?? 0),
+                style: const TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: _downloadPlayerJson,
@@ -779,6 +822,159 @@ class _PlayerNoteDialogState extends State<PlayerNoteDialog> {
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class SendMoneyDialog extends StatefulWidget {
+  final int playerId;
+  final int playerCopper;
+  final dynamic socket;
+  const SendMoneyDialog({super.key, required this.playerId, required this.playerCopper, required this.socket});
+
+  @override
+  State<SendMoneyDialog> createState() => _SendMoneyDialogState();
+}
+
+class _SendMoneyDialogState extends State<SendMoneyDialog> {
+  final TextEditingController _amountController = TextEditingController();
+  List<Map<String, dynamic>> _players = [];
+  int? _selectedReceiverId;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlayers();
+  }
+
+  Future<void> _loadPlayers() async {
+    try {
+      final players = await ApiService.getPlayersList();
+      if (mounted) {
+        setState(() {
+          _players = players.where((p) => p['id'] != widget.playerId).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _send() {
+    if (_selectedReceiverId == null) return;
+    final amount = int.tryParse(_amountController.text) ?? 0;
+    if (amount <= 0 || amount > widget.playerCopper) return;
+
+    widget.socket.emit('transfer_money', {
+      'sender_id': widget.playerId,
+      'receiver_id': _selectedReceiverId,
+      'amount': amount,
+    });
+
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Colors.red),
+      ),
+      child: SizedBox(
+        width: 400,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'ENVOYER ARGENT',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red, letterSpacing: 2),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_loading)
+                const CircularProgressIndicator(color: Colors.red)
+              else ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _players.map((player) {
+                    final isSelected = _selectedReceiverId == player['id'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedReceiverId = player['id']),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.red.withValues(alpha: 0.2) : Colors.black,
+                          border: Border.all(color: isSelected ? Colors.red : Colors.white24),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          player['player_name'],
+                          style: TextStyle(color: isSelected ? Colors.red : Colors.white70),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _amountController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Montant (cuivre)',
+                          hintStyle: const TextStyle(color: Colors.white24),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          filled: true,
+                          fillColor: Colors.black,
+                          border: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.black),
+                      onPressed: _send,
+                      child: const Text('Envoyer'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

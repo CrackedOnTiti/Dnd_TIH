@@ -667,6 +667,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
   late TextEditingController _currStamController;
   late TextEditingController _maxStamController;
   late TextEditingController _lastRollController;
+  late TextEditingController _copperController;
 
   @override
   void initState() {
@@ -681,6 +682,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
     _currStamController = TextEditingController(text: '${widget.player.currStam}');
     _maxStamController = TextEditingController(text: '${widget.player.maxStam}');
     _lastRollController = TextEditingController(text: '${widget.player.lastDiceRoll}');
+    _copperController = TextEditingController(text: '${widget.player.copper}');
   }
 
   @override
@@ -695,6 +697,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
     _currStamController.dispose();
     _maxStamController.dispose();
     _lastRollController.dispose();
+    _copperController.dispose();
     super.dispose();
   }
 
@@ -759,6 +762,9 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
                 ],
               ),
               _buildEditField('Last Dice Roll', _lastRollController, 'last_dice_roll', isInt: true),
+              const Divider(color: Colors.red),
+              const SizedBox(height: 8),
+              _buildEditField('Copper', _copperController, 'copper', isInt: true),
             ],
           ),
         ),
