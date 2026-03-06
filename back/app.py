@@ -274,6 +274,51 @@ def handle_player_message(data):
         emit('new_message_' + str(player_id), message.to_dict(), broadcast=True)
 
 
+@app.route('/api/players/list', methods=['GET'])
+def api_get_players_list():
+    from models import Player
+    try:
+        players = db.session.query(Player).all()
+        return jsonify({
+            'success': True,
+            'players': [{'id': p.id, 'player_name': p.player_name} for p in players]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@socketio.on('transfer_money')
+def handle_transfer_money(data):
+    from models import Player
+    sender_id = data.get('sender_id')
+    receiver_id = data.get('receiver_id')
+    amount = data.get('amount', 0)
+
+    if amount <= 0 or sender_id == receiver_id:
+        return
+
+    with app.app_context():
+        sender = db.session.get(Player, sender_id)
+        receiver = db.session.get(Player, receiver_id)
+        if not sender or not receiver:
+            return
+        if sender.copper < amount:
+            return
+
+        sender.copper -= amount
+        receiver.copper += amount
+        db.session.commit()
+
+        emit('player_updated', {
+            'player_id': sender_id,
+            'field': 'copper',
+            'value': sender.copper,
+        }, broadcast=True)
+        emit('player_updated', {
+            'player_id': receiver_id,
+            'field': 'copper',
+            'value': receiver.copper,
+        }, broadcast=True)
+
 @socketio.on('update_player_field')
 def handle_update_player_field(data):
     from models import Player
@@ -284,7 +329,7 @@ def handle_update_player_field(data):
     # Allowed fields to update
     allowed_fields = [
         'player_name', 'power', 'power_description', 'sex', 'physical_description',
-        'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll'
+        'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll', 'copper'
     ]
 
     if field not in allowed_fields:
@@ -340,7 +385,8 @@ if __name__ == '__main__':
                 max_hp INTEGER DEFAULT 100,
                 curr_stam INTEGER DEFAULT 100,
                 max_stam INTEGER DEFAULT 100,
-                last_dice_roll INTEGER DEFAULT 0
+                last_dice_roll INTEGER DEFAULT 0,
+                copper INTEGER DEFAULT 0
             )
         """))
         db.session.execute(db.text("""

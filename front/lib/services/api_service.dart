@@ -137,4 +137,17 @@ class ApiService {
       throw Exception('Failed to save notes');
     }
   }
+
+  static Future<List<Map<String, dynamic>>> getPlayersList() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/players/list'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success']) {
+        return List<Map<String, dynamic>>.from(data['players']);
+      }
+    }
+    throw Exception('Failed to load players list');
+  }
 }
