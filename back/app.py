@@ -10,16 +10,12 @@ import os
 
 app = Flask(__name__)
 
-# Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///dnd.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Host password
 HOST_PASSWORD = os.environ.get('HOST_PASSWORD', '2251')
 
 db = SQLAlchemy(app)
-
-# Enable CORS for all routes and origins (for local network access)
 CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
@@ -55,8 +51,6 @@ def api_create_player():
 
         db.session.add(new_player)
         db.session.commit()
-
-        # Notify host of new player
         socketio.emit('player_created', {
             'player_id': new_player.id,
             'player_name': new_player.player_name
@@ -104,15 +98,10 @@ def api_player_roll(player_id):
 
         player = db.session.get(Player, player_id)
         if not player:
-            return jsonify({
-                'success': False,
-                'error': 'Player not found'
-            }), 404
+            return jsonify({'success': False, 'error': 'Player not found'}), 404
 
         player.last_dice_roll = roll
         db.session.commit()
-
-        # Broadcast to all connected clients (especially host)
         socketio.emit('player_rolled', {
             'player_id': player.id,
             'player_name': player.player_name,
@@ -186,27 +175,13 @@ def api_get_all_players():
     from models import Player
     try:
         players = db.session.query(Player).all()
-        return jsonify({
-            'success': True,
-            'players': [player.to_dict() for player in players]
-        })
+        return jsonify({'success': True, 'players': [p.to_dict() for p in players]})
     except Exception as e:
-        print(f"Error getting players: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
-
-@socketio.on('increment')
-def handle_increment():
-    print('Player clicked increment!')
-    emit('increment', broadcast=True)
+        print(f"Error getting players: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 @socketio.on('host_rolled')
 def handle_host_rolled(data):
-    # Broadcast to all clients (players will receive this)
     emit('host_rolled', data, broadcast=True)
 
 @socketio.on('update_stat')
@@ -224,65 +199,34 @@ def handle_update_stat(data):
             elif stat_type == 'stam':
                 player.curr_stam = value
             db.session.commit()
-
-            # Broadcast to all clients (including player)
             emit('stat_updated', {
                 'player_id': player_id,
                 'stat_type': stat_type,
                 'value': value,
             }, broadcast=True)
 
-@socketio.on('host_message')
-def handle_host_message(data):
+def _save_message(player_id, sender, content, mode):
     from models import Message
-    player_id = data.get('player_id')
-    content = data.get('content')
-    mode = data.get('mode', 'RP')
-
     with app.app_context():
-        message = Message(
-            player_id=player_id,
-            sender='host',
-            content=content,
-            mode=mode
-        )
+        message = Message(player_id=player_id, sender=sender, content=content, mode=mode)
         db.session.add(message)
         db.session.commit()
-
-        # Send to specific player
         emit('new_message_' + str(player_id), message.to_dict(), broadcast=True)
 
+@socketio.on('host_message')
+def handle_host_message(data):
+    _save_message(data.get('player_id'), 'host', data.get('content'), data.get('mode', 'RP'))
 
 @socketio.on('player_message')
 def handle_player_message(data):
-    from models import Message
-    player_id = data.get('player_id')
-    content = data.get('content')
-    mode = data.get('mode', 'RP')
-
-    with app.app_context():
-        message = Message(
-            player_id=player_id,
-            sender='player',
-            content=content,
-            mode=mode
-        )
-        db.session.add(message)
-        db.session.commit()
-
-        # Broadcast so host can receive
-        emit('new_message_' + str(player_id), message.to_dict(), broadcast=True)
-
+    _save_message(data.get('player_id'), 'player', data.get('content'), data.get('mode', 'RP'))
 
 @app.route('/api/players/list', methods=['GET'])
 def api_get_players_list():
     from models import Player
     try:
         players = db.session.query(Player).all()
-        return jsonify({
-            'success': True,
-            'players': [{'id': p.id, 'player_name': p.player_name} for p in players]
-        })
+        return jsonify({'success': True, 'players': [{'id': p.id, 'player_name': p.player_name} for p in players]})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -326,7 +270,6 @@ def handle_update_player_field(data):
     field = data.get('field')
     value = data.get('value')
 
-    # Allowed fields to update
     allowed_fields = [
         'player_name', 'power', 'power_description', 'sex', 'physical_description',
         'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll', 'copper'
@@ -340,8 +283,6 @@ def handle_update_player_field(data):
         if player:
             setattr(player, field, value)
             db.session.commit()
-
-            # Broadcast to all clients
             emit('player_updated', {
                 'player_id': player_id,
                 'field': field,
@@ -352,12 +293,10 @@ if __name__ == '__main__':
     import time
     import sys
 
-    # Wait for database to be ready
+    from models import Player, Message, Note
     print("Waiting for database...", flush=True)
     time.sleep(5)
 
-    # Create tables
-    from models import Player, Message, Note
     with app.app_context():
         try:
             db.create_all()
@@ -366,13 +305,10 @@ if __name__ == '__main__':
             print(f"Error creating tables: {e}", flush=True)
             sys.exit(1)
 
-        # Verify tables exist
         for table_name in ['players', 'messages', 'notes']:
             result = db.session.execute(db.text(f"SELECT to_regclass('public.{table_name}')"))
-            exists = result.scalar()
-            print(f"{table_name} table: {exists}", flush=True)
+            print(f"{table_name}: {result.scalar()}", flush=True)
 
-        # Fallback: create with raw SQL if missing
         db.session.execute(db.text("""
             CREATE TABLE IF NOT EXISTS players (
                 id SERIAL PRIMARY KEY,

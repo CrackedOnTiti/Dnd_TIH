@@ -66,35 +66,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted && data['player_id'] == _player!.id) {
         setState(() {
           if (data['stat_type'] == 'hp') {
-            _player = Player(
-              id: _player!.id,
-              playerName: _player!.playerName,
-              power: _player!.power,
-              powerDescription: _player!.powerDescription,
-              sex: _player!.sex,
-              physicalDescription: _player!.physicalDescription,
-              currHp: data['value'],
-              maxHp: _player!.maxHp,
-              currStam: _player!.currStam,
-              maxStam: _player!.maxStam,
-              lastDiceRoll: _player!.lastDiceRoll,
-              copper: _player!.copper,
-            );
+            _player = _player!.copyWith(currHp: data['value']);
           } else if (data['stat_type'] == 'stam') {
-            _player = Player(
-              id: _player!.id,
-              playerName: _player!.playerName,
-              power: _player!.power,
-              powerDescription: _player!.powerDescription,
-              sex: _player!.sex,
-              physicalDescription: _player!.physicalDescription,
-              currHp: _player!.currHp,
-              maxHp: _player!.maxHp,
-              currStam: data['value'],
-              maxStam: _player!.maxStam,
-              lastDiceRoll: _player!.lastDiceRoll,
-              copper: _player!.copper,
-            );
+            _player = _player!.copyWith(currStam: data['value']);
           }
         });
       }
@@ -105,22 +79,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final field = data['field'];
         final value = data['value'];
         setState(() {
-          if (field == 'last_dice_roll') {
-            _lastRoll = value;
-          }
-          _player = Player(
-            id: _player!.id,
-            playerName: field == 'player_name' ? value : _player!.playerName,
-            power: field == 'power' ? value : _player!.power,
-            powerDescription: field == 'power_description' ? value : _player!.powerDescription,
-            sex: field == 'sex' ? value : _player!.sex,
-            physicalDescription: field == 'physical_description' ? value : _player!.physicalDescription,
-            currHp: field == 'curr_hp' ? value : _player!.currHp,
-            maxHp: field == 'max_hp' ? value : _player!.maxHp,
-            currStam: field == 'curr_stam' ? value : _player!.currStam,
-            maxStam: field == 'max_stam' ? value : _player!.maxStam,
-            lastDiceRoll: field == 'last_dice_roll' ? value : _player!.lastDiceRoll,
-            copper: field == 'copper' ? value : _player!.copper,
+          if (field == 'last_dice_roll') _lastRoll = value;
+          _player = _player!.copyWith(
+            playerName: field == 'player_name' ? value : null,
+            power: field == 'power' ? value : null,
+            powerDescription: field == 'power_description' ? value : null,
+            sex: field == 'sex' ? value : null,
+            physicalDescription: field == 'physical_description' ? value : null,
+            currHp: field == 'curr_hp' ? value : null,
+            maxHp: field == 'max_hp' ? value : null,
+            currStam: field == 'curr_stam' ? value : null,
+            maxStam: field == 'max_stam' ? value : null,
+            lastDiceRoll: field == 'last_dice_roll' ? value : null,
+            copper: field == 'copper' ? value : null,
           );
         });
       }
@@ -345,7 +316,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Host Roll Box
                 Container(
                   width: 80,
                   height: 80,
@@ -385,7 +355,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          // HP Bar
                           Row(
                       children: [
                         const Icon(Icons.favorite, color: Colors.green, size: 20),
@@ -431,7 +400,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Stamina Bar
                     Row(
                       children: [
                         const Icon(Icons.bolt, color: Colors.blue, size: 20),
@@ -507,7 +475,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               child: Row(
                 children: [
-                  // Left side - Dice roll
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -568,12 +535,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ),
                   ),
-                  // Divider
                   Container(
                     width: 1,
                     color: Colors.red.withOpacity(0.3),
                   ),
-                  // Right side - Messages
                   Expanded(
                     child: Column(
                       children: [

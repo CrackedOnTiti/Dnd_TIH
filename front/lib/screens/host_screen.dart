@@ -58,11 +58,43 @@ class _HostScreenState extends State<HostScreen> {
     });
 
     _socket.on('stat_updated', (data) {
-      if (mounted) _loadPlayers();
+      if (!mounted) return;
+      final playerId = data['player_id'];
+      final statType = data['stat_type'];
+      final value = data['value'];
+      setState(() {
+        _players = _players.map((p) {
+          if (p.id != playerId) return p;
+          if (statType == 'hp') return p.copyWith(currHp: value);
+          if (statType == 'stam') return p.copyWith(currStam: value);
+          return p;
+        }).toList();
+      });
     });
 
     _socket.on('player_updated', (data) {
-      if (mounted) _loadPlayers();
+      if (!mounted) return;
+      final playerId = data['player_id'];
+      final field = data['field'];
+      final value = data['value'];
+      setState(() {
+        _players = _players.map((p) {
+          if (p.id != playerId) return p;
+          return p.copyWith(
+            playerName: field == 'player_name' ? value : null,
+            power: field == 'power' ? value : null,
+            powerDescription: field == 'power_description' ? value : null,
+            sex: field == 'sex' ? value : null,
+            physicalDescription: field == 'physical_description' ? value : null,
+            currHp: field == 'curr_hp' ? value : null,
+            maxHp: field == 'max_hp' ? value : null,
+            currStam: field == 'curr_stam' ? value : null,
+            maxStam: field == 'max_stam' ? value : null,
+            lastDiceRoll: field == 'last_dice_roll' ? value : null,
+            copper: field == 'copper' ? value : null,
+          );
+        }).toList();
+      });
     });
   }
 
@@ -197,7 +229,6 @@ class _HostScreenState extends State<HostScreen> {
       ),
       body: Row(
         children: [
-          // Left side - Player list (50%)
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: Colors.red))
@@ -316,7 +347,6 @@ class _HostScreenState extends State<HostScreen> {
                         },
                       ),
           ),
-          // Right side - Main panel (50%)
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),

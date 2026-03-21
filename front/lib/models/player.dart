@@ -27,6 +27,35 @@ class Player {
     required this.copper,
   });
 
+  Player copyWith({
+    int? currHp,
+    int? maxHp,
+    int? currStam,
+    int? maxStam,
+    int? lastDiceRoll,
+    int? copper,
+    String? playerName,
+    String? power,
+    String? powerDescription,
+    String? sex,
+    String? physicalDescription,
+  }) {
+    return Player(
+      id: id,
+      playerName: playerName ?? this.playerName,
+      power: power ?? this.power,
+      powerDescription: powerDescription ?? this.powerDescription,
+      sex: sex ?? this.sex,
+      physicalDescription: physicalDescription ?? this.physicalDescription,
+      currHp: currHp ?? this.currHp,
+      maxHp: maxHp ?? this.maxHp,
+      currStam: currStam ?? this.currStam,
+      maxStam: maxStam ?? this.maxStam,
+      lastDiceRoll: lastDiceRoll ?? this.lastDiceRoll,
+      copper: copper ?? this.copper,
+    );
+  }
+
   factory Player.fromJson(Map<String, dynamic> json) {
     return Player(
       id: json['id'],

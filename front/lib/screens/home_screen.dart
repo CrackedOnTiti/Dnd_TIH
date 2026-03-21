@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _serverController = TextEditingController();
   bool _isDragging = false;
+  final List<StreamSubscription> _dragSubscriptions = [];
 
   @override
   void initState() {
@@ -24,14 +26,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setupDragDrop() {
-    html.document.onDragOver.listen((e) {
+    _dragSubscriptions.add(html.document.onDragOver.listen((e) {
       e.preventDefault();
       if (!_isDragging && mounted) setState(() => _isDragging = true);
-    });
-    html.document.onDragLeave.listen((e) {
+    }));
+    _dragSubscriptions.add(html.document.onDragLeave.listen((e) {
       if (_isDragging && mounted) setState(() => _isDragging = false);
-    });
-    html.document.onDrop.listen((e) {
+    }));
+    _dragSubscriptions.add(html.document.onDrop.listen((e) {
       e.preventDefault();
       if (mounted) setState(() => _isDragging = false);
       final files = e.dataTransfer.files;
@@ -52,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         reader.readAsText(files[0]);
       }
-    });
+    }));
   }
 
   Future<void> _loginWithJson(int playerId) async {
@@ -94,6 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    for (final sub in _dragSubscriptions) {
+      sub.cancel();
+    }
     _serverController.dispose();
     super.dispose();
   }
