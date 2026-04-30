@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DND_TIH - Joueur</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ── Character creation overlay ──────────────────────── -->
+<div class="overlay hidden" id="create-overlay">
+  <div class="modal" style="max-width:480px">
+    <h2>Creer votre personnage</h2>
+    <div class="col">
+      <div class="form-row"><label>Nom *</label><input id="c-name" type="text" placeholder="Nom du personnage"></div>
+      <div class="row">
+        <div class="form-row" style="flex:1"><label>Sexe</label><input id="c-sex" type="text" placeholder="M / F / ..."></div>
+        <div class="form-row" style="flex:1"><label>Age</label><input id="c-age" type="number" placeholder="Age"></div>
+      </div>
+      <div class="form-row"><label>Pouvoir 1</label><input id="c-p1" type="text"></div>
+      <div class="form-row"><label>Pouvoir 2</label><input id="c-p2" type="text"></div>
+      <div class="form-row"><label>Description</label><textarea id="c-desc" rows="3"></textarea></div>
+      <div class="form-row"><label>Armes</label><input id="c-weap" type="text"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="primary" onclick="submitCreateCharacter()">Creer</button>
+    </div>
+    <p class="error-msg" id="create-error"></p>
+  </div>
+</div>
+
+<!-- ── Notes popup ───────────────────────────────────────── -->
+<div class="overlay hidden" id="notes-overlay">
+  <div class="modal" style="max-width:640px; width:95%">
+    <h2>Notes personnelles</h2>
+    <textarea id="notes-area" style="height:360px; width:100%; resize:vertical"></textarea>
+    <div class="modal-actions">
+      <button onclick="closeNotes()">Fermer</button>
+      <button class="primary" onclick="saveNotes()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit request popup ─────────────────────────────────── -->
+<div class="overlay hidden" id="edit-overlay">
+  <div class="modal" style="max-width:480px">
+    <h2>Demande de modification</h2>
+    <p class="dim" style="font-size:12px; margin-bottom:1rem">Votre demande sera envoyee au maitre du jeu pour approbation.</p>
+    <div class="col" id="edit-fields"></div>
+    <div class="modal-actions">
+      <button onclick="closeEdit()">Annuler</button>
+      <button class="primary" onclick="submitEditRequest()">Envoyer la demande</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ability creation popup ─────────────────────────────── -->
+<div class="overlay hidden" id="ability-overlay">
+  <div class="modal" style="max-width:420px">
+    <h2>Nouvelle capacite</h2>
+    <p class="dim" style="font-size:12px; margin-bottom:1rem">Doit etre approuvee par le maitre du jeu.</p>
+    <div class="col">
+      <div class="form-row"><label>Nom *</label><input id="ab-name" type="text"></div>
+      <div class="form-row"><label>Description</label><textarea id="ab-desc" rows="3"></textarea></div>
+      <div class="row">
+        <div class="form-row" style="flex:1">
+          <label>Type de drainage</label>
+          <select id="ab-drain-type">
+            <option value="">Aucun</option>
+            <option value="hp">HP</option>
+            <option value="stam">Stamina</option>
+            <option value="both">Les deux</option>
+          </select>
+        </div>
+        <div class="form-row" style="flex:1"><label>Valeur</label><input id="ab-drain-val" type="number" min="0"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeAbility()">Annuler</button>
+      <button class="primary" onclick="submitAbilityRequest()">Soumettre</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ability quickcast popup ──────────────────────────────── -->
+<div class="overlay hidden" id="cast-overlay">
+  <div class="modal" style="max-width:400px">
+    <div id="cast-content"></div>
+    <div class="modal-actions">
+      <button onclick="closeCast()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Send money popup ──────────────────────────────────────── -->
+<div class="overlay hidden" id="money-overlay">
+  <div class="modal" style="max-width:380px">
+    <h2>Envoyer de l'argent</h2>
+    <div class="col">
+      <div class="form-row">
+        <label>Destinataire</label>
+        <select id="money-to"></select>
+      </div>
+      <div class="form-row">
+        <label>Montant</label>
+        <div class="money-input-grid">
+          <div class="money-input-cell plat"><span>P</span><input id="money-plat" type="number" min="0" value="0"></div>
+          <div class="money-input-cell gold"><span>O</span><input id="money-gold" type="number" min="0" value="0"></div>
+          <div class="money-input-cell silver"><span>A</span><input id="money-silver" type="number" min="0" value="0"></div>
+          <div class="money-input-cell copper"><span>C</span><input id="money-copper" type="number" min="0" value="0"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeMoney()">Annuler</button>
+      <button class="primary" onclick="submitMoneyTransfer()">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DM select popup ──────────────────────────────────────── -->
+<div class="overlay hidden" id="dm-select-overlay">
+  <div class="modal" style="max-width:340px">
+    <h2>Message prive</h2>
+    <p class="dim" style="font-size:12px; margin-bottom:1rem">Choisissez un joueur</p>
+    <div id="dm-player-list" class="col"></div>
+    <div class="modal-actions">
+      <button onclick="closeDmSelect()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Request resolved toast ───────────────────────────────── -->
+<div id="toast" class="hidden" style="position:fixed;bottom:1rem;right:1rem;background:var(--surface);border:1px solid var(--accent);padding:0.8rem 1.2rem;z-index:200;max-width:320px;font-size:13px;"></div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- Main layout                                                 -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="player-layout" id="app" style="display:none">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div style="font-size:11px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase;">DND_TIH</div>
+      <div class="row" style="align-items:center; gap:0.5rem; margin-top:0.2rem;">
+        <div id="player-name-display" style="font-size:1.1rem; color:var(--accent2);"></div>
+        <span id="ws-dot" title="Deconnecte" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0"></span>
+      </div>
+    </div>
+
+    <!-- HP -->
+    <div class="bar-wrap bar-hp">
+      <div class="bar-label"><span>Points de vie</span><span id="hp-text">-</span></div>
+      <div class="bar-track"><div class="bar-fill" id="hp-bar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Stamina -->
+    <div class="bar-wrap bar-stam">
+      <div class="bar-label"><span>Stamina</span><span id="stam-text">-</span></div>
+      <div class="bar-track"><div class="bar-fill" id="stam-bar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Dice indicators -->
+    <div class="panel">
+      <div class="panel-title">Dernier jet</div>
+      <div class="row" style="gap:1.5rem; justify-content:center;">
+        <div>
+          <div class="dice-label">Maitre du jeu</div>
+          <div class="dice-display" id="host-roll-display">-</div>
+        </div>
+        <div>
+          <div class="dice-label">Votre jet</div>
+          <div class="dice-display" id="my-roll-display">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roll button -->
+    <div class="panel">
+      <div class="panel-title">Lancer</div>
+      <div class="row" style="margin-bottom:0.5rem; flex-wrap:wrap; gap:0.3rem;">
+        <button class="small" id="die-6"   onclick="setDie(6)">d6</button>
+        <button class="small" id="die-10"  onclick="setDie(10)">d10</button>
+        <button class="small primary" id="die-20" onclick="setDie(20)">d20</button>
+        <button class="small" id="die-100" onclick="setDie(100)">d100</button>
+      </div>
+      <button class="w100 primary" onclick="roll()">Lancer</button>
+    </div>
+
+    <!-- Money -->
+    <div class="panel">
+      <div class="panel-title">Argent</div>
+      <div class="money-grid" id="money-display"></div>
+      <div class="row" style="margin-top:0.5rem; gap:0.3rem;">
+        <button class="small w100" onclick="openMoney()">Envoyer</button>
+      </div>
+    </div>
+
+    <!-- Notes + profile buttons -->
+    <div class="col" style="gap:0.3rem;">
+      <button onclick="openNotes()">Notes personnelles</button>
+      <button onclick="openEdit()">Modifier mon profil</button>
+      <button onclick="logout()" class="danger small">Deconnexion</button>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <main class="main-area">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('profile')">Profil</button>
+      <button class="tab-btn" onclick="switchTab('chat-host')">Chat MJ <span class="badge hidden" id="host-badge">!</span></button>
+      <button class="tab-btn" onclick="switchTab('chat-players')">Messages</button>
+      <button class="tab-btn" onclick="switchTab('abilities')">Capacites</button>
+      <button class="tab-btn" onclick="switchTab('inventory')">Inventaire</button>
+      <button class="tab-btn" onclick="switchTab('coming-soon')">A venir</button>
+    </div>
+
+    <!-- Profile tab -->
+    <div class="tab-content active" id="tab-profile">
+      <div class="panel">
+        <div class="panel-title">Fiche personnage</div>
+        <table id="profile-table">
+          <tr><th>Nom</th><td id="pf-name">-</td></tr>
+          <tr><th>Sexe</th><td id="pf-sex">-</td></tr>
+          <tr><th>Age</th><td id="pf-age">-</td></tr>
+          <tr><th>Pouvoir 1</th><td id="pf-p1">-</td></tr>
+          <tr><th>Pouvoir 2</th><td id="pf-p2">-</td></tr>
+          <tr><th>Description</th><td id="pf-desc" style="white-space:pre-wrap">-</td></tr>
+          <tr><th>Armes</th><td id="pf-weap">-</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chat MJ tab -->
+    <div class="tab-content" id="tab-chat-host">
+      <div class="panel" style="display:flex; flex-direction:column; height:100%">
+        <div class="panel-title">Chat avec le Maitre du jeu</div>
+        <div class="chat-log" id="chat-host-log"></div>
+        <div class="chat-input-row">
+          <select id="chat-mode" style="width:90px; flex-shrink:0">
+            <option value="RP">RP</option>
+            <option value="HRP">HRP</option>
+            <option value="???">???</option>
+          </select>
+          <input type="text" id="chat-host-input" placeholder="Message..." onkeydown="if(event.key==='Enter') sendHostChat()">
+          <button onclick="sendHostChat()">Envoyer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat players tab -->
+    <div class="tab-content" id="tab-chat-players">
+      <div class="panel">
+        <div class="panel-title">Messages prives</div>
+        <div style="margin-bottom:0.5rem">
+          <button onclick="openDmSelect()">Nouvelle conversation</button>
+        </div>
+        <!-- Active DM conversation -->
+        <div id="dm-area" class="hidden">
+          <div class="row" style="margin-bottom:0.5rem;">
+            <span id="dm-partner-name" class="bold"></span>
+            <button class="small" onclick="closeDmConversation()">Changer</button>
+          </div>
+          <div class="chat-log" id="chat-dm-log"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-dm-input" placeholder="Message..." onkeydown="if(event.key==='Enter') sendDm()">
+            <button onclick="sendDm()">Envoyer</button>
+          </div>
+        </div>
+        <div id="dm-empty" class="dim" style="font-size:12px">Aucune conversation ouverte.</div>
+      </div>
+    </div>
+
+    <!-- Abilities tab -->
+    <div class="tab-content" id="tab-abilities">
+      <div class="panel">
+        <div class="panel-title">Capacites</div>
+        <button onclick="openAbility()" style="margin-bottom:0.8rem">+ Nouvelle capacite</button>
+        <div id="abilities-list"></div>
+      </div>
+    </div>
+
+    <!-- Inventory tab -->
+    <div class="tab-content" id="tab-inventory">
+      <div class="panel">
+        <div class="panel-title">Inventaire</div>
+        <table>
+          <thead><tr><th>Objet</th><th>Quantite</th><th></th></tr></thead>
+          <tbody id="inventory-body"></tbody>
+        </table>
+        <div class="row" style="margin-top:0.8rem; gap:0.5rem;">
+          <input type="text"   id="new-item-name"   placeholder="Nom de l'objet" style="flex:2">
+          <input type="number" id="new-item-amount" placeholder="Qte" min="1" value="1" style="width:70px">
+          <button onclick="addInventoryItem()">Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coming soon tab -->
+    <div class="tab-content" id="tab-coming-soon">
+      <div class="panel text-center" style="padding:3rem">
+        <div style="font-size:1.2rem; color:var(--text-dim)">A venir...</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="/js/main.js"></script>
+<script src="/js/player.js"></script>
+</body>
+</html>

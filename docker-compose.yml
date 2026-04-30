@@ -1,39 +1,36 @@
 services:
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=dnd_user
-      - POSTGRES_PASSWORD=dnd_password
-      - POSTGRES_DB=dnd_db
-    ports:
-      - "5432:5432"
+  app:
+    build: .
+    restart: unless-stopped
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:/app/data/dnd.db
+      - HOST_USERNAME=${HOST_USERNAME:-host}
+      - HOST_PIN=${HOST_PIN:-0000}
+      - RUST_LOG=${RUST_LOG:-info}
+    expose:
+      - "3000"
+    depends_on: []
 
-  web:
+  caddy:
     build:
       context: .
-      dockerfile: back/Dockerfile.back
+      dockerfile: Dockerfile.caddy
+    restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
-      - ./back:/app/back
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=postgresql://dnd_user:dnd_password@db:5432/dnd_db
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
     depends_on:
-      - db
-
-  frontend:
-    build:
-      context: ./front
-      dockerfile: Dockerfile.front
-    ports:
-      - "8080:80"
-    environment:
-      - API_URL=http://web:5000
-    depends_on:
-      - web
+      - app
 
 volumes:
-  postgres_data:
+  caddy_data:
+  caddy_config:

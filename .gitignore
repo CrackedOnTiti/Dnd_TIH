@@ -1,8 +1,4 @@
-venv
-__pycache__
-
-# Database backups
-backups/
-*.sql
-
-*.json
+/target
+data/
+.env
+*.db
