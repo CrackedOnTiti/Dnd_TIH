@@ -11,6 +11,7 @@ class Player {
   final int maxStam;
   final int lastDiceRoll;
   final int copper;
+  final int storedDamage;
 
   Player({
     required this.id,
@@ -25,6 +26,7 @@ class Player {
     required this.maxStam,
     required this.lastDiceRoll,
     required this.copper,
+    required this.storedDamage,
   });
 
   Player copyWith({
@@ -34,6 +36,7 @@ class Player {
     int? maxStam,
     int? lastDiceRoll,
     int? copper,
+    int? storedDamage,
     String? playerName,
     String? power,
     String? powerDescription,
@@ -53,6 +56,7 @@ class Player {
       maxStam: maxStam ?? this.maxStam,
       lastDiceRoll: lastDiceRoll ?? this.lastDiceRoll,
       copper: copper ?? this.copper,
+      storedDamage: storedDamage ?? this.storedDamage,
     );
   }
 
@@ -70,6 +74,7 @@ class Player {
       maxStam: json['max_stam'],
       lastDiceRoll: json['last_dice_roll'],
       copper: json['copper'] ?? 0,
+      storedDamage: json['stored_damage'] ?? 0,
     );
   }
 }

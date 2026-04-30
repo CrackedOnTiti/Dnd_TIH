@@ -15,6 +15,7 @@ class Player(db.Model):
     max_stam = db.Column(db.Integer, default=100)
     last_dice_roll = db.Column(db.Integer, default=0)
     copper = db.Column(db.Integer, default=0)
+    stored_damage = db.Column(db.Integer, default=0)
 
     def to_dict(self):
         return {
@@ -29,7 +30,8 @@ class Player(db.Model):
             'curr_stam': self.curr_stam,
             'max_stam': self.max_stam,
             'last_dice_roll': self.last_dice_roll,
-            'copper': self.copper
+            'copper': self.copper,
+            'stored_damage': self.stored_damage
         }
 
 

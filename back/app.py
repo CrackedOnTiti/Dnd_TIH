@@ -195,7 +195,15 @@ def handle_update_stat(data):
         player = db.session.get(Player, player_id)
         if player:
             if stat_type == 'hp':
+                old_hp = player.curr_hp
                 player.curr_hp = value
+                if player_id == 2 and value < old_hp:
+                    player.stored_damage = (player.stored_damage or 0) + (old_hp - value)
+                    emit('player_updated', {
+                        'player_id': player_id,
+                        'field': 'stored_damage',
+                        'value': player.stored_damage,
+                    }, broadcast=True)
             elif stat_type == 'stam':
                 player.curr_stam = value
             db.session.commit()
@@ -272,7 +280,7 @@ def handle_update_player_field(data):
 
     allowed_fields = [
         'player_name', 'power', 'power_description', 'sex', 'physical_description',
-        'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll', 'copper'
+        'curr_hp', 'max_hp', 'curr_stam', 'max_stam', 'last_dice_roll', 'copper', 'stored_damage'
     ]
 
     if field not in allowed_fields:
@@ -322,7 +330,8 @@ if __name__ == '__main__':
                 curr_stam INTEGER DEFAULT 100,
                 max_stam INTEGER DEFAULT 100,
                 last_dice_roll INTEGER DEFAULT 0,
-                copper INTEGER DEFAULT 0
+                copper INTEGER DEFAULT 0,
+                stored_damage INTEGER DEFAULT 0
             )
         """))
         db.session.execute(db.text("""

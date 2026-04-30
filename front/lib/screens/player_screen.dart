@@ -92,6 +92,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             maxStam: field == 'max_stam' ? value : null,
             lastDiceRoll: field == 'last_dice_roll' ? value : null,
             copper: field == 'copper' ? value : null,
+            storedDamage: field == 'stored_damage' ? value : null,
           );
         });
       }
@@ -348,6 +349,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
+                if (_player!.id == 2) ...[
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'ABSORBÉ',
+                          style: TextStyle(fontSize: 8, color: Colors.orange, letterSpacing: 1),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_player!.storedDamage}',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
                 // HP and Stamina Bars
                 Expanded(
                   child: Card(

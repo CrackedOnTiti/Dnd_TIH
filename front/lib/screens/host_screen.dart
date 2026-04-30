@@ -92,6 +92,7 @@ class _HostScreenState extends State<HostScreen> {
             maxStam: field == 'max_stam' ? value : null,
             lastDiceRoll: field == 'last_dice_roll' ? value : null,
             copper: field == 'copper' ? value : null,
+            storedDamage: field == 'stored_damage' ? value : null,
           );
         }).toList();
       });
@@ -337,6 +338,21 @@ class _HostScreenState extends State<HostScreen> {
                                           statType: 'stam',
                                           color: Colors.blue,
                                         ),
+                                        if (player.id == 2) ...[
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.shield, color: Colors.orange, size: 20),
+                                              const SizedBox(width: 8),
+                                              const Text('ABSORBÉ', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                '${player.storedDamage}',
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -698,6 +714,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
   late TextEditingController _maxStamController;
   late TextEditingController _lastRollController;
   late TextEditingController _copperController;
+  late TextEditingController _storedDamageController;
 
   @override
   void initState() {
@@ -713,6 +730,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
     _maxStamController = TextEditingController(text: '${widget.player.maxStam}');
     _lastRollController = TextEditingController(text: '${widget.player.lastDiceRoll}');
     _copperController = TextEditingController(text: '${widget.player.copper}');
+    _storedDamageController = TextEditingController(text: '${widget.player.storedDamage}');
   }
 
   @override
@@ -728,6 +746,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
     _maxStamController.dispose();
     _lastRollController.dispose();
     _copperController.dispose();
+    _storedDamageController.dispose();
     super.dispose();
   }
 
@@ -795,6 +814,8 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
               const Divider(color: Colors.red),
               const SizedBox(height: 8),
               _buildEditField('Copper', _copperController, 'copper', isInt: true),
+              if (widget.player.id == 2)
+                _buildEditField('Stored Damage (Gruut)', _storedDamageController, 'stored_damage', isInt: true),
             ],
           ),
         ),
