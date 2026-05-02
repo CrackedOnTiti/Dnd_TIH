@@ -1,5 +1,4 @@
-# Replace ton-domaine with your actual DuckDNS subdomain
-ton-domaine.duckdns.org {
+crackedontiti.duckdns.org {
     reverse_proxy app:3000
 
     tls {

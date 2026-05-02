@@ -8,9 +8,17 @@ services:
       - DATABASE_URL=sqlite:/app/data/dnd.db
       - HOST_USERNAME=${HOST_USERNAME:-host}
       - HOST_PIN=${HOST_PIN:-0000}
+      - PLAYER1_USERNAME=${PLAYER1_USERNAME:-}
+      - PLAYER1_PIN=${PLAYER1_PIN:-1234}
+      - PLAYER2_USERNAME=${PLAYER2_USERNAME:-}
+      - PLAYER2_PIN=${PLAYER2_PIN:-1234}
+      - PLAYER3_USERNAME=${PLAYER3_USERNAME:-}
+      - PLAYER3_PIN=${PLAYER3_PIN:-1234}
+      - PLAYER4_USERNAME=${PLAYER4_USERNAME:-}
+      - PLAYER4_PIN=${PLAYER4_PIN:-1234}
       - RUST_LOG=${RUST_LOG:-info}
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     depends_on: []
 
   caddy:

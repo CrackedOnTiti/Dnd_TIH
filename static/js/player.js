@@ -27,24 +27,30 @@ async function init() {
 }
 
 async function loadAll() {
-  const [charR, msgR, invR, abR, plR] = await Promise.all([
+  const [charR, msgR, invR, abR, plR, notesR, specR] = await Promise.all([
     fetch('/api/character'),
     fetch('/api/messages/host'),
     fetch('/api/inventory'),
     fetch('/api/abilities'),
-    fetch('/api/players')
+    fetch('/api/players'),
+    fetch('/api/notes'),
+    fetch('/api/specials')
   ]);
   character = await charR.json();
   const msgs = await msgR.json();
   const inv  = await invR.json();
   const abs  = await abR.json();
   players    = await plR.json();
+  const notes = await notesR.json();
+  const specials = await specR.json();
 
   renderCharacter(character);
   msgs.forEach(m => appendHostMsg(m.sender === 'host' ? 'Maitre du jeu' : character.name, m.content, m.mode));
   renderInventory(inv);
   renderAbilities(abs);
   renderMoneySelect();
+  document.getElementById('notes-area').value = notes.content || '';
+  renderSpecials(specials);
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -138,6 +144,12 @@ function handleWsMessage(msg) {
     case 'error':
       showToast(msg.data.message, true);
       break;
+    case 'special_updated':
+      if (msg.data.character_id === me.character_id) {
+        const el = document.getElementById(`special-val-${msg.data.key}`);
+        if (el) el.textContent = msg.data.value;
+      }
+      break;
   }
 }
 
@@ -152,14 +164,33 @@ function renderCharacter(c) {
   document.getElementById('pf-name').textContent  = c.name   || '-';
   document.getElementById('pf-sex').textContent   = c.sex    || '-';
   document.getElementById('pf-age').textContent   = c.age    || '-';
-  document.getElementById('pf-p1').textContent    = c.power1 || '-';
-  document.getElementById('pf-p2').textContent    = c.power2 || '-';
-  document.getElementById('pf-desc').textContent  = c.description || '-';
-  document.getElementById('pf-weap').textContent  = c.weapons || '-';
+  document.getElementById('pf-p1').textContent      = c.power1    || '-';
+  document.getElementById('pf-p1desc').textContent  = c.power1_desc || '-';
+  document.getElementById('pf-p2').textContent      = c.power2    || '-';
+  document.getElementById('pf-physdesc').textContent = c.physical_desc || '-';
+  document.getElementById('pf-weap').textContent    = c.weapons   || '-';
 
   if (c.last_roll !== null && c.last_roll !== undefined) {
     document.getElementById('my-roll-display').textContent = c.last_roll;
   }
+}
+
+function renderSpecials(specials) {
+  const panel = document.getElementById('special-panel');
+  if (!specials || !specials.length) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = specials.map(s => {
+    if (s.key === 'stored_damage') {
+      return `<div class="panel">
+        <div class="panel-title">Degats stockes</div>
+        <div class="dice-display" id="special-val-stored_damage" style="font-size:2rem; text-align:center">${s.value}</div>
+      </div>`;
+    }
+    return `<div class="panel">
+      <div class="panel-title">${escape_html(s.key)}</div>
+      <div class="dice-display" id="special-val-${escape_html(s.key)}" style="font-size:2rem; text-align:center">${s.value}</div>
+    </div>`;
+  }).join('');
 }
 
 function updateStats(data) {
@@ -419,14 +450,6 @@ function submitMoneyTransfer() {
 
 // ── Notes ─────────────────────────────────────────────────────────────────────
 
-async function openNotes() {
-  const r = await fetch('/api/notes');
-  const d = await r.json();
-  document.getElementById('notes-area').value = d.content || '';
-  document.getElementById('notes-overlay').classList.remove('hidden');
-}
-function closeNotes() { document.getElementById('notes-overlay').classList.add('hidden'); }
-
 async function saveNotes() {
   const content = document.getElementById('notes-area').value;
   await fetch('/api/notes', {
@@ -434,7 +457,6 @@ async function saveNotes() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content })
   });
-  closeNotes();
 }
 
 // ── Edit request ──────────────────────────────────────────────────────────────
@@ -447,8 +469,9 @@ function openEdit() {
     <div class="form-row"><label>Sexe</label><input id="ef-sex" type="text" value="${escape_html(character.sex || '')}"></div>
     <div class="form-row"><label>Age</label><input id="ef-age" type="number" value="${character.age || ''}"></div>
     <div class="form-row"><label>Pouvoir 1</label><input id="ef-p1" type="text" value="${escape_html(character.power1 || '')}"></div>
+    <div class="form-row"><label>Description pouvoir</label><textarea id="ef-p1desc" rows="2">${escape_html(character.power1_desc || '')}</textarea></div>
     <div class="form-row"><label>Pouvoir 2</label><input id="ef-p2" type="text" value="${escape_html(character.power2 || '')}"></div>
-    <div class="form-row"><label>Description</label><textarea id="ef-desc" rows="3">${escape_html(character.description || '')}</textarea></div>
+    <div class="form-row"><label>Description physique</label><textarea id="ef-physdesc" rows="2">${escape_html(character.physical_desc || '')}</textarea></div>
     <div class="form-row"><label>Armes</label><input id="ef-weap" type="text" value="${escape_html(character.weapons || '')}"></div>
   `;
   document.getElementById('edit-overlay').classList.remove('hidden');
@@ -460,10 +483,11 @@ function submitEditRequest() {
     name:        document.getElementById('ef-name').value.trim(),
     sex:         document.getElementById('ef-sex').value.trim(),
     age:         parseInt(document.getElementById('ef-age').value) || null,
-    power1:      document.getElementById('ef-p1').value.trim(),
-    power2:      document.getElementById('ef-p2').value.trim(),
-    description: document.getElementById('ef-desc').value.trim(),
-    weapons:     document.getElementById('ef-weap').value.trim(),
+    power1:       document.getElementById('ef-p1').value.trim(),
+    power1_desc:  document.getElementById('ef-p1desc').value.trim(),
+    power2:       document.getElementById('ef-p2').value.trim(),
+    physical_desc: document.getElementById('ef-physdesc').value.trim(),
+    weapons:      document.getElementById('ef-weap').value.trim(),
   };
   send('change_request', { req_type: 'profile', payload });
   showToast('Demande de modification envoyee.');
@@ -480,10 +504,11 @@ async function submitCreateCharacter() {
     name,
     sex:         document.getElementById('c-sex').value.trim() || null,
     age:         parseInt(document.getElementById('c-age').value) || null,
-    power1:      document.getElementById('c-p1').value.trim() || null,
-    power2:      document.getElementById('c-p2').value.trim() || null,
-    description: document.getElementById('c-desc').value.trim() || null,
-    weapons:     document.getElementById('c-weap').value.trim() || null,
+    power1:        document.getElementById('c-p1').value.trim() || null,
+    power1_desc:   document.getElementById('c-p1desc').value.trim() || null,
+    power2:        document.getElementById('c-p2').value.trim() || null,
+    physical_desc: document.getElementById('c-physdesc').value.trim() || null,
+    weapons:       document.getElementById('c-weap').value.trim() || null,
   };
 
   const r = await fetch('/api/character/create', {

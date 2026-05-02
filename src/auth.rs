@@ -29,6 +29,40 @@ pub async fn seed_host(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+pub async fn seed_players(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    for n in 1..=4 {
+        let uname = match std::env::var(format!("PLAYER{}_USERNAME", n)) {
+            Ok(v) if !v.is_empty() => v,
+            _ => continue,
+        };
+        let pin = std::env::var(format!("PLAYER{}_PIN", n)).unwrap_or_else(|_| "1234".to_string());
+        let hashed = bcrypt::hash(&pin, bcrypt::DEFAULT_COST).expect("bcrypt failed");
+
+        let existing: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM users WHERE username = ?")
+                .bind(&uname)
+                .fetch_optional(pool)
+                .await?;
+
+        if let Some(id) = existing {
+            sqlx::query("UPDATE users SET pin = ? WHERE id = ?")
+                .bind(&hashed)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            tracing::info!("Player PIN updated: {}", uname);
+        } else {
+            sqlx::query("INSERT INTO users (username, pin, role) VALUES (?, ?, 'player')")
+                .bind(&uname)
+                .bind(&hashed)
+                .execute(pool)
+                .await?;
+            tracing::info!("Player account created: {}", uname);
+        }
+    }
+    Ok(())
+}
+
 pub async fn create_session(pool: &SqlitePool, user_id: i64) -> Result<String, sqlx::Error> {
     let token = Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO sessions (token, user_id) VALUES (?, ?)")

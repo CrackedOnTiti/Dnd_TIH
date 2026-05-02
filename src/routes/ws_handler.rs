@@ -365,6 +365,21 @@ async fn process_message(
             let modified_payload = env.data.get("payload").cloned();
             handle_request_response(request_id, action, host_note, modified_payload, state).await;
         }
+        ("special_deduct", "host") => {
+            if let (Some(cid), Some(amount)) = (
+                env.data["character_id"].as_i64(),
+                env.data["amount"].as_i64(),
+            ) {
+                let key = env.data["key"].as_str().unwrap_or("stored_damage");
+                special_add(cid, key, -amount, state).await;
+            }
+        }
+        ("special_clear", "host") => {
+            if let Some(cid) = env.data["character_id"].as_i64() {
+                let key = env.data["key"].as_str().unwrap_or("stored_damage");
+                special_set(cid, key, 0, state).await;
+            }
+        }
         _ => {}
     }
 }
@@ -767,9 +782,69 @@ async fn handle_request_response(
         .await;
 }
 
+// ── Character specials ────────────────────────────────────────────────────────
+
+async fn special_add(character_id: i64, key: &str, delta: i64, state: &AppState) {
+    let new_val: Option<i64> = sqlx::query_scalar(
+        "UPDATE character_specials SET value = value + ? WHERE character_id = ? AND key = ? RETURNING value",
+    )
+    .bind(delta)
+    .bind(character_id)
+    .bind(key)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    if let Some(v) = new_val {
+        push_special_updated(character_id, key, v, state).await;
+    }
+}
+
+async fn special_set(character_id: i64, key: &str, value: i64, state: &AppState) {
+    let new_val: Option<i64> = sqlx::query_scalar(
+        "UPDATE character_specials SET value = ? WHERE character_id = ? AND key = ? RETURNING value",
+    )
+    .bind(value)
+    .bind(character_id)
+    .bind(key)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    if let Some(v) = new_val {
+        push_special_updated(character_id, key, v, state).await;
+    }
+}
+
+async fn push_special_updated(character_id: i64, key: &str, value: i64, state: &AppState) {
+    let msg = WsEnvelope::new(
+        "special_updated",
+        serde_json::json!({ "character_id": character_id, "key": key, "value": value }),
+    );
+    state.hub.send_to_character(character_id, &msg).await;
+    state.hub.send_to_host(&msg).await;
+}
+
 // ── Stat update (host) ────────────────────────────────────────────────────────
 
 async fn handle_stat_update(character_id: i64, field: &str, value: i64, state: &AppState) {
+    // Auto-track stored_damage: if HP is being reduced, add the difference
+    if field == "curr_hp" {
+        if let Ok(Some(old_hp)) = sqlx::query_scalar::<_, i64>(
+            "SELECT curr_hp FROM characters WHERE id = ?",
+        )
+        .bind(character_id)
+        .fetch_optional(&state.db)
+        .await
+        {
+            if value < old_hp {
+                special_add(character_id, "stored_damage", old_hp - value, state).await;
+            }
+        }
+    }
+
     let query = format!("UPDATE characters SET {} = ? WHERE id = ?", field);
     sqlx::query(&query)
         .bind(value)
@@ -845,7 +920,7 @@ async fn apply_profile_changes(
     state: &AppState,
 ) {
     let allowed_fields = [
-        "name", "sex", "age", "power1", "power2", "description", "weapons",
+        "name", "sex", "age", "power1", "power1_desc", "power2", "physical_desc", "weapons",
     ];
     if let Some(obj) = changes.as_object() {
         for (key, val) in obj {

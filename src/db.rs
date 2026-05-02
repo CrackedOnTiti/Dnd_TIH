@@ -31,25 +31,30 @@ async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS characters (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id     INTEGER NOT NULL REFERENCES users(id),
-            name        TEXT    NOT NULL,
-            sex         TEXT,
-            age         INTEGER,
-            power1      TEXT,
-            power2      TEXT,
-            description TEXT,
-            weapons     TEXT,
-            curr_hp     INTEGER DEFAULT 100,
-            max_hp      INTEGER DEFAULT 100,
-            curr_stam   INTEGER DEFAULT 100,
-            max_stam    INTEGER DEFAULT 100,
-            copper      INTEGER DEFAULT 0,
-            last_roll   INTEGER
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id       INTEGER NOT NULL REFERENCES users(id),
+            name          TEXT    NOT NULL,
+            sex           TEXT,
+            age           INTEGER,
+            power1        TEXT,
+            power1_desc   TEXT,
+            power2        TEXT,
+            physical_desc TEXT,
+            weapons       TEXT,
+            curr_hp       INTEGER DEFAULT 100,
+            max_hp        INTEGER DEFAULT 100,
+            curr_stam     INTEGER DEFAULT 100,
+            max_stam      INTEGER DEFAULT 100,
+            copper        INTEGER DEFAULT 0,
+            last_roll     INTEGER
         )",
     )
     .execute(pool)
     .await?;
+
+    // Non-destructive migrations for existing databases
+    let _ = sqlx::query("ALTER TABLE characters ADD COLUMN power1_desc TEXT").execute(pool).await;
+    let _ = sqlx::query("ALTER TABLE characters ADD COLUMN physical_desc TEXT").execute(pool).await;
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS change_requests (
@@ -146,6 +151,28 @@ async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             fixed_value      INTEGER,
             always_over_half INTEGER DEFAULT 0
         )",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS character_specials (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL REFERENCES characters(id),
+            key          TEXT    NOT NULL,
+            value        INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(character_id, key)
+        )",
+    )
+    .execute(pool)
+    .await?;
+
+    // Seed Joachim's stored_damage if not already present
+    sqlx::query(
+        "INSERT OR IGNORE INTO character_specials (character_id, key, value)
+         SELECT c.id, 'stored_damage', 20
+         FROM characters c JOIN users u ON u.id = c.user_id
+         WHERE u.username = 'joachim_gruut'",
     )
     .execute(pool)
     .await?;

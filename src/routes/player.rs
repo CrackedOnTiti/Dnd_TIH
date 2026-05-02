@@ -1,6 +1,6 @@
 use crate::{
     auth::AuthUser,
-    models::{Ability, Character, HostMessage, InventoryItem, Note, PlayerMessage},
+    models::{Ability, Character, CharacterSpecial, HostMessage, InventoryItem, Note, PlayerMessage},
     AppState,
 };
 use axum::{
@@ -45,8 +45,9 @@ pub struct CreateCharacterPayload {
     pub sex: Option<String>,
     pub age: Option<i64>,
     pub power1: Option<String>,
+    pub power1_desc: Option<String>,
     pub power2: Option<String>,
-    pub description: Option<String>,
+    pub physical_desc: Option<String>,
     pub weapons: Option<String>,
 }
 
@@ -60,16 +61,17 @@ pub async fn create_character(
     }
 
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO characters (user_id, name, sex, age, power1, power2, description, weapons)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+        "INSERT INTO characters (user_id, name, sex, age, power1, power1_desc, power2, physical_desc, weapons)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
     )
     .bind(auth.user.id)
     .bind(&payload.name)
     .bind(&payload.sex)
     .bind(payload.age)
     .bind(&payload.power1)
+    .bind(&payload.power1_desc)
     .bind(&payload.power2)
-    .bind(&payload.description)
+    .bind(&payload.physical_desc)
     .bind(&payload.weapons)
     .fetch_one(&state.db)
     .await
@@ -268,4 +270,24 @@ pub async fn get_abilities(
             .unwrap_or_default();
 
     Json(serde_json::to_value(abilities).unwrap()).into_response()
+}
+
+pub async fn get_specials(
+    auth: AuthUser,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let char_id = match auth.character_id {
+        Some(id) => id,
+        None => return Json(serde_json::json!([])).into_response(),
+    };
+
+    let specials: Vec<CharacterSpecial> = sqlx::query_as(
+        "SELECT * FROM character_specials WHERE character_id = ? ORDER BY key ASC",
+    )
+    .bind(char_id)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(serde_json::to_value(specials).unwrap()).into_response()
 }

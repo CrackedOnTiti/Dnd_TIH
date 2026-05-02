@@ -16,8 +16,9 @@ pub struct Character {
     pub sex: Option<String>,
     pub age: Option<i64>,
     pub power1: Option<String>,
+    pub power1_desc: Option<String>,
     pub power2: Option<String>,
-    pub description: Option<String>,
+    pub physical_desc: Option<String>,
     pub weapons: Option<String>,
     pub curr_hp: i64,
     pub max_hp: i64,
@@ -93,6 +94,14 @@ pub struct DiceConstraint {
     pub range_max: Option<i64>,
     pub fixed_value: Option<i64>,
     pub always_over_half: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CharacterSpecial {
+    pub id: i64,
+    pub character_id: i64,
+    pub key: String,
+    pub value: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

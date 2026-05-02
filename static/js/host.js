@@ -199,6 +199,18 @@ function handleWsMessage(msg) {
       }
       break;
     }
+
+    case 'special_updated': {
+      const p = findPlayer(msg.data.character_id);
+      if (p) {
+        if (!p.specials) p.specials = [];
+        const spec = p.specials.find(s => s.key === msg.data.key);
+        if (spec) spec.value = msg.data.value;
+        const el = document.getElementById(`host-special-val-${msg.data.key}-${msg.data.character_id}`);
+        if (el) el.textContent = msg.data.value;
+      }
+      break;
+    }
   }
 }
 
@@ -324,6 +336,9 @@ function renderDetail(cid) {
 
     </div>
 
+    <!-- Specials (only rendered if character has them) -->
+    <div id="detail-specials"></div>
+
     <!-- Abilities -->
     <div class="panel">
       <div class="panel-title">Capacites</div>
@@ -364,6 +379,7 @@ function renderDetail(cid) {
   renderDetailInventory(p.inventory);
   render_money(c.copper, document.getElementById('detail-money'));
   renderDetailAbilities(p.abilities || []);
+  renderDetailSpecials(p.specials || [], c.id);
 }
 
 function refreshStatBars(data) {
@@ -433,10 +449,11 @@ function openProfileEdit(cid) {
   document.getElementById('pop-pf-name').value  = c.name        || '';
   document.getElementById('pop-pf-sex').value   = c.sex         || '';
   document.getElementById('pop-pf-age').value   = c.age         || '';
-  document.getElementById('pop-pf-p1').value    = c.power1      || '';
-  document.getElementById('pop-pf-p2').value    = c.power2      || '';
-  document.getElementById('pop-pf-desc').value  = c.description || '';
-  document.getElementById('pop-pf-weap').value  = c.weapons     || '';
+  document.getElementById('pop-pf-p1').value       = c.power1       || '';
+  document.getElementById('pop-pf-p1desc').value   = c.power1_desc  || '';
+  document.getElementById('pop-pf-p2').value       = c.power2       || '';
+  document.getElementById('pop-pf-physdesc').value = c.physical_desc || '';
+  document.getElementById('pop-pf-weap').value     = c.weapons      || '';
   document.getElementById('profile-overlay').classList.remove('hidden');
 }
 
@@ -451,13 +468,50 @@ function submitProfileEdit() {
     name:        document.getElementById('pop-pf-name').value.trim(),
     sex:         document.getElementById('pop-pf-sex').value.trim() || null,
     age:         parseInt(document.getElementById('pop-pf-age').value) || null,
-    power1:      document.getElementById('pop-pf-p1').value.trim() || null,
-    power2:      document.getElementById('pop-pf-p2').value.trim() || null,
-    description: document.getElementById('pop-pf-desc').value.trim() || null,
-    weapons:     document.getElementById('pop-pf-weap').value.trim() || null,
+    power1:        document.getElementById('pop-pf-p1').value.trim() || null,
+    power1_desc:   document.getElementById('pop-pf-p1desc').value.trim() || null,
+    power2:        document.getElementById('pop-pf-p2').value.trim() || null,
+    physical_desc: document.getElementById('pop-pf-physdesc').value.trim() || null,
+    weapons:       document.getElementById('pop-pf-weap').value.trim() || null,
   };
   send('profile_update', { character_id: profileEditCid, changes });
   closeProfileEdit();
+}
+
+// ── Specials (detail panel) ──────────────────────────────────────────────────
+
+function renderDetailSpecials(specials, charId) {
+  const container = document.getElementById('detail-specials');
+  if (!container) return;
+  if (!specials || !specials.length) { container.innerHTML = ''; return; }
+
+  container.innerHTML = specials.map(s => {
+    if (s.key === 'stored_damage') {
+      return `<div class="panel">
+        <div class="panel-title">Degats stockes de ${escape_html(findPlayer(charId)?.character?.name || '')}</div>
+        <div style="font-size:1.6rem; color:var(--accent2); margin-bottom:0.5rem" id="host-special-val-stored_damage-${charId}">${s.value}</div>
+        <div class="row" style="gap:0.4rem; align-items:center">
+          <input type="number" id="host-special-input-${charId}" min="1" placeholder="Deduire"
+            style="flex:1"
+            onkeydown="if(event.key==='Enter') deductSpecial(${charId},'stored_damage')">
+          <button class="small danger" onclick="clearSpecial(${charId},'stored_damage')">Vider</button>
+        </div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+}
+
+function deductSpecial(charId, key) {
+  const input = document.getElementById(`host-special-input-${charId}`);
+  const amount = parseInt(input.value);
+  if (!amount || amount <= 0) return;
+  send('special_deduct', { character_id: charId, key, amount });
+  input.value = '';
+}
+
+function clearSpecial(charId, key) {
+  send('special_clear', { character_id: charId, key });
 }
 
 // ── Abilities (detail panel) ──────────────────────────────────────────────────

@@ -41,6 +41,10 @@ async fn main() {
         .await
         .expect("Failed to seed host account");
 
+    auth::seed_players(&pool)
+        .await
+        .expect("Failed to seed player accounts");
+
     let hub = Arc::new(Hub::new());
     let state = AppState { db: pool, hub };
 
@@ -59,6 +63,7 @@ async fn main() {
         .route("/api/notes", get(routes::player::get_notes).post(routes::player::save_notes))
         .route("/api/inventory", get(routes::player::get_inventory))
         .route("/api/abilities", get(routes::player::get_abilities))
+        .route("/api/specials", get(routes::player::get_specials))
         // Host API
         .route("/api/host/players", get(routes::host::get_all_players))
         .route("/api/host/change_requests", get(routes::host::get_change_requests))

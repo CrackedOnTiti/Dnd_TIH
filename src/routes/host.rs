@@ -1,6 +1,6 @@
 use crate::{
     auth::HostOnly,
-    models::{Ability, ChangeRequest, Character, DiceConstraint, InventoryItem},
+    models::{Ability, ChangeRequest, Character, CharacterSpecial, DiceConstraint, InventoryItem},
     AppState,
 };
 use axum::{
@@ -43,11 +43,20 @@ pub async fn get_all_players(
         .await
         .unwrap_or(None);
 
+        let specials: Vec<CharacterSpecial> = sqlx::query_as(
+            "SELECT * FROM character_specials WHERE character_id = ? ORDER BY key ASC",
+        )
+        .bind(c.id)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+
         result.push(serde_json::json!({
             "character": c,
             "inventory": inventory,
             "abilities": abilities,
-            "dice_constraint": constraint
+            "dice_constraint": constraint,
+            "specials": specials
         }));
     }
 

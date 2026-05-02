@@ -19,8 +19,9 @@
         <div class="form-row" style="flex:1"><label>Age</label><input id="c-age" type="number" placeholder="Age"></div>
       </div>
       <div class="form-row"><label>Pouvoir 1</label><input id="c-p1" type="text"></div>
+      <div class="form-row"><label>Description pouvoir</label><textarea id="c-p1desc" rows="2"></textarea></div>
       <div class="form-row"><label>Pouvoir 2</label><input id="c-p2" type="text"></div>
-      <div class="form-row"><label>Description</label><textarea id="c-desc" rows="3"></textarea></div>
+      <div class="form-row"><label>Description physique</label><textarea id="c-physdesc" rows="2"></textarea></div>
       <div class="form-row"><label>Armes</label><input id="c-weap" type="text"></div>
     </div>
     <div class="modal-actions">
@@ -30,17 +31,6 @@
   </div>
 </div>
 
-<!-- ── Notes popup ───────────────────────────────────────── -->
-<div class="overlay hidden" id="notes-overlay">
-  <div class="modal" style="max-width:640px; width:95%">
-    <h2>Notes personnelles</h2>
-    <textarea id="notes-area" style="height:360px; width:100%; resize:vertical"></textarea>
-    <div class="modal-actions">
-      <button onclick="closeNotes()">Fermer</button>
-      <button class="primary" onclick="saveNotes()">Enregistrer</button>
-    </div>
-  </div>
-</div>
 
 <!-- ── Edit request popup ─────────────────────────────────── -->
 <div class="overlay hidden" id="edit-overlay">
@@ -176,6 +166,9 @@
       </div>
     </div>
 
+    <!-- Character specials (shown only if character has specials) -->
+    <div id="special-panel" class="hidden"></div>
+
     <!-- Roll button -->
     <div class="panel">
       <div class="panel-title">Lancer</div>
@@ -199,7 +192,6 @@
 
     <!-- Notes + profile buttons -->
     <div class="col" style="gap:0.3rem;">
-      <button onclick="openNotes()">Notes personnelles</button>
       <button onclick="openEdit()">Modifier mon profil</button>
       <button onclick="logout()" class="danger small">Deconnexion</button>
     </div>
@@ -215,7 +207,7 @@
       <button class="tab-btn" onclick="switchTab('chat-players')">Messages</button>
       <button class="tab-btn" onclick="switchTab('abilities')">Capacites</button>
       <button class="tab-btn" onclick="switchTab('inventory')">Inventaire</button>
-      <button class="tab-btn" onclick="switchTab('coming-soon')">A venir</button>
+      <button class="tab-btn" onclick="switchTab('notes')">Notes</button>
     </div>
 
     <!-- Profile tab -->
@@ -227,8 +219,9 @@
           <tr><th>Sexe</th><td id="pf-sex">-</td></tr>
           <tr><th>Age</th><td id="pf-age">-</td></tr>
           <tr><th>Pouvoir 1</th><td id="pf-p1">-</td></tr>
+          <tr><th>Description pouvoir</th><td id="pf-p1desc" style="white-space:pre-wrap">-</td></tr>
           <tr><th>Pouvoir 2</th><td id="pf-p2">-</td></tr>
-          <tr><th>Description</th><td id="pf-desc" style="white-space:pre-wrap">-</td></tr>
+          <tr><th>Description physique</th><td id="pf-physdesc" style="white-space:pre-wrap">-</td></tr>
           <tr><th>Armes</th><td id="pf-weap">-</td></tr>
         </table>
       </div>
@@ -299,10 +292,14 @@
       </div>
     </div>
 
-    <!-- Coming soon tab -->
-    <div class="tab-content" id="tab-coming-soon">
-      <div class="panel text-center" style="padding:3rem">
-        <div style="font-size:1.2rem; color:var(--text-dim)">A venir...</div>
+    <!-- Notes tab -->
+    <div class="tab-content" id="tab-notes">
+      <div class="panel" style="display:flex; flex-direction:column; height:100%">
+        <div class="panel-title">Notes personnelles</div>
+        <textarea id="notes-area" style="flex:1; resize:none; min-height:400px"></textarea>
+        <div style="margin-top:0.5rem; text-align:right">
+          <button class="primary" onclick="saveNotes()">Enregistrer</button>
+        </div>
       </div>
     </div>
 
