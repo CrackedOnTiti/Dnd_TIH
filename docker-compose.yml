@@ -18,27 +18,4 @@ services:
       - PLAYER4_PIN=${PLAYER4_PIN:-1234}
       - RUST_LOG=${RUST_LOG:-info}
     ports:
-      - "3000:3000"
-    depends_on: []
-
-  caddy:
-    build:
-      context: .
-      dockerfile: Dockerfile.caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
-    depends_on:
-      - app
-
-volumes:
-  caddy_data:
-  caddy_config:
+      - "50080:3000"

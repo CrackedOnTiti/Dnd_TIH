@@ -16,8 +16,16 @@ pub async fn seed_host(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             .fetch_optional(pool)
             .await?;
 
-    if existing.is_none() {
-        let hashed = bcrypt::hash(&pin, bcrypt::DEFAULT_COST).expect("bcrypt failed");
+    let hashed = bcrypt::hash(&pin, bcrypt::DEFAULT_COST).expect("bcrypt failed");
+    if let Some(existing_user) = existing {
+        sqlx::query("UPDATE users SET username = ?, pin = ? WHERE id = ?")
+            .bind(&username)
+            .bind(&hashed)
+            .bind(existing_user.id)
+            .execute(pool)
+            .await?;
+        tracing::info!("Host account updated: {}", username);
+    } else {
         sqlx::query("INSERT INTO users (username, pin, role) VALUES (?, ?, 'host')")
             .bind(&username)
             .bind(&hashed)
